@@ -1,0 +1,14 @@
+package cn.shuangbofu.rhea.job.job;
+
+import cn.shuangbofu.rhea.common.enums.JobStatus;
+import cn.shuangbofu.rhea.job.conf.JobConf;
+import cn.shuangbofu.rhea.job.conf.JobText;
+
+/**
+ * Created by shuangbofu on 2020/10/18 下午7:10
+ */
+public class FlinkSqlJob extends FlinkJob {
+    public FlinkSqlJob(Long jobId, String jobName, Long actionId, JobStatus jobStatus, JobText text, JobConf conf) {
+        super(jobId, jobName, actionId, jobStatus, text, conf);
+    }
+}

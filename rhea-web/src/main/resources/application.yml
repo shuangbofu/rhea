@@ -1,0 +1,9 @@
+server:
+  port: 8885
+
+runtime:
+  env: dev
+mysql:
+  url: jdbc:mysql://127.0.0.1:3306/rhea?useSSL=false&characterEncoding=UTF-8
+  username: root
+  password: root
