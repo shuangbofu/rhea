@@ -11,9 +11,21 @@ public enum JobStatus {
      * 任务状态enum
      */
     FAILED,
+
     STOPPED,
+
+    // 运行中
     RUNNING,
-    LAUNCHING,
+
+    // 执行中（启动中，发布中）
+    EXECUTING,
+
+    // 等待
     PENDING,
-    ;
+
+    // 发布完成
+    PUBLISHED,
+
+    // 提交完成
+    SUBMITTED
 }

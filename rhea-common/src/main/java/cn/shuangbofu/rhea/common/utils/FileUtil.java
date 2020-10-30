@@ -1,6 +1,7 @@
 package cn.shuangbofu.rhea.common.utils;
 
 import cn.shuangbofu.rhea.common.tuple.TwoTuple;
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import org.apache.commons.io.IOUtils;
 
@@ -114,15 +115,18 @@ public class FileUtil {
     }
 
     @Data
+    @AllArgsConstructor
     public static class LogData {
         private int offset;
         private int length;
         private String value;
+    }
 
-        public LogData(int offset, int length, String value) {
-            this.offset = offset;
-            this.length = length;
-            this.value = value;
-        }
+    @Data
+    @AllArgsConstructor
+    public static class LogResult {
+        private byte[] log;
+        private int startByte;
+        private int endByte;
     }
 }

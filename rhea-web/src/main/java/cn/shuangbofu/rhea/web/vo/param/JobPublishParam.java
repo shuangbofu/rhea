@@ -8,6 +8,7 @@ import lombok.Data;
 @Data
 public class JobPublishParam {
     private Long jobId;
+    private Integer version;
     private Long clusterId;
     private Long componentId;
     private String publishDesc;

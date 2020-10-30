@@ -99,6 +99,7 @@ CREATE TABLE `rhea_job_log`
     `gmt_modified` bigint(13) unsigned NOT NULL DEFAULT '0' COMMENT '修改时间',
     `status`       tinyint(1) unsigned NOT NULL DEFAULT '0' COMMENT '逻辑删除',
     `env` varchar(8) NOT NULL DEFAULT '' COMMENT '区域',
+    `key` varchar(64) NOT NULL DEFAULT '' COMMENT 'key',
     `log` mediumblob NOT NULL COMMENT '日志',
     `start_byte` int(10) NOT NULL DEFAULT '0' COMMENT '开始字节点',
     `end_byte` int(10) NOT NULL DEFAULT '0' COMMENT '结束字节点',

@@ -1,6 +1,4 @@
-package cn.shuangbofu.rhea.job;
-
-import java.util.Map;
+package cn.shuangbofu.rhea.job.executor;
 
 /**
  * Created by shuangbofu on 2020/10/18 下午5:29
@@ -10,9 +8,9 @@ import java.util.Map;
  */
 public interface Executor {
 
-    void submit(cn.shuangbofu.rhea.job.Job job);
+    void ssh(String cmd, boolean all);
 
-    boolean cancel();
+    void scp(String localPath, String remotePath, boolean all);
 
-    Map<String, Object> getProperties();
+    void cancel();
 }

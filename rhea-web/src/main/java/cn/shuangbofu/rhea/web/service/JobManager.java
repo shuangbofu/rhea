@@ -23,8 +23,6 @@ public class JobManager implements EventListener {
     private static final Logger LOGGER = LoggerFactory.getLogger(JobManager.class);
     private final Map<Long, FlinkJob> flinkJobCache = Maps.newConcurrentMap();
     @Getter
-    private final Map<Long, JobRunner> launchingJobs = Maps.newConcurrentMap();
-    @Getter
     private final Map<Long, JobRunner> runningJobs = Maps.newConcurrentMap();
     @Autowired
     private JobCreator jobCreator;
@@ -37,14 +35,6 @@ public class JobManager implements EventListener {
 
     public FlinkJob getFlinkJob(Long actionId) {
         return flinkJobCache.computeIfAbsent(actionId, i -> jobCreator.createJob(actionId));
-    }
-
-    public JobRunner checkRunning(Long actionId) {
-        JobRunner jobRunner = runningJobs.get(actionId);
-        if (jobRunner == null) {
-            throw new RuntimeException("没有在运行中！");
-        }
-        return jobRunner;
     }
 
     @Override

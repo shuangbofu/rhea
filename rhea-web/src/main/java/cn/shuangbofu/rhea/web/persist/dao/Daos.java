@@ -46,6 +46,10 @@ public class Daos {
         return get(ComponentConfDao.class);
     }
 
+    public static JobLogDao jobLog() {
+        return get(JobLogDao.class);
+    }
+
     public static void atomic(Runnable runnable, String errMsg) {
         Anima.atomic(runnable).catchException(e -> {
             throw new RuntimeException(errMsg, e);

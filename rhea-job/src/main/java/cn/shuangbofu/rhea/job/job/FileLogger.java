@@ -1,6 +1,8 @@
 package cn.shuangbofu.rhea.job.job;
 
 import cn.shuangbofu.rhea.common.utils.FileUtil;
+import cn.shuangbofu.rhea.job.JobLogger;
+import com.google.common.collect.Lists;
 import lombok.Getter;
 import org.apache.commons.io.IOUtils;
 import org.apache.log4j.*;
@@ -9,11 +11,13 @@ import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Created by shuangbofu on 2020-04-04 02:25
  */
-public class FileLogger implements cn.shuangbofu.rhea.job.JobLogger {
+public class FileLogger implements JobLogger {
 
     private static final Layout DEFAULT_LAYOUT = new EnhancedPatternLayout(
             "%d %t - [%p] - %m\n");
@@ -37,6 +41,7 @@ public class FileLogger implements cn.shuangbofu.rhea.job.JobLogger {
         } catch (IOException e) {
 
         }
+        this.logger = logger;
         info("log init success");
     }
 
@@ -45,6 +50,7 @@ public class FileLogger implements cn.shuangbofu.rhea.job.JobLogger {
         return String.format(s.replace("{}", "%s"), args);
     }
 
+    @Override
     public void info(String s, Throwable t, Object... args) {
         logger.info(format(s, args), t);
     }
@@ -68,14 +74,14 @@ public class FileLogger implements cn.shuangbofu.rhea.job.JobLogger {
     public void error(String s, Object... args) {
         logger.error(format(s, args));
     }
-
-    public void warn(String s, Throwable t, Object... args) {
-        logger.warn(format(s, args), t);
-    }
-
-    public void warn(String s, Object... args) {
-        logger.warn(format(s, args));
-    }
+//
+//    public void warn(String s, Throwable t, Object... args) {
+//        logger.warn(format(s, args), t);
+//    }
+//
+//    public void warn(String s, Object... args) {
+//        logger.warn(format(s, args));
+//    }
 
     public FileUtil.LogData getLog(int offset, int length) throws IOException {
         if (logFile != null) {
@@ -86,21 +92,17 @@ public class FileLogger implements cn.shuangbofu.rhea.job.JobLogger {
     }
 
     @Override
-    public void close() {
+    public List<FileUtil.LogResult> close() {
         info("关闭日志({})", name);
         logger.removeAllAppenders();
         fileAppender.close();
         consoleAppender.close();
         logger = null;
-        uploadLogFile(logFile);
+        return getRes(logFile);
     }
 
-    /**
-     * copy from azkaban
-     *
-     * @param files
-     */
-    private void uploadLogFile(File... files) {
+    public List<FileUtil.LogResult> getRes(File... files) {
+        List<FileUtil.LogResult> logResults = Lists.newArrayList();
         byte[] buffer = new byte[50 * 1024];
         int pos = 0;
         int length = buffer.length;
@@ -115,12 +117,7 @@ public class FileLogger implements cn.shuangbofu.rhea.job.JobLogger {
                     int size = bufferedStream.read(buffer, pos, length);
                     while (size >= 0) {
                         if (pos + size == buffer.length) {
-                            // TODO
-                            // Flush here.
-//                            LogManager.saveLog(new LogModel().setType(type).setRefId(id).setAttempt(attempt)
-//                                    .setLog(buffer)
-//                                    .setStartByte(startByte)
-//                                    .setEndByte(startByte + buffer.length));
+                            logResults.add(new FileUtil.LogResult(buffer, startByte, startByte + buffer.length));
                             pos = 0;
                             length = buffer.length;
                             startByte += buffer.length;
@@ -138,11 +135,12 @@ public class FileLogger implements cn.shuangbofu.rhea.job.JobLogger {
 
             // Final commit of buffer.
             if (pos > 0) {
-//                LogManager.saveLog(new LogModel().setType(type).setRefId(id).setAttempt(attempt)
-//                        .setLog(Arrays.copyOf(buffer, pos))
-//                        .setStartByte(startByte).setEndByte(startByte + pos));
+                logResults.add(new FileUtil.LogResult(Arrays.copyOf(buffer, pos), startByte, startByte + pos));
             }
         } catch (IOException e) {
         }
+        return logResults;
     }
+
+
 }

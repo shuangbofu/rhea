@@ -35,7 +35,7 @@ public class RheaWebApp {
     }
 
     @Controller
-    public class Index {
+    public static class Index {
 
         @RequestMapping("/")
         public String index() {

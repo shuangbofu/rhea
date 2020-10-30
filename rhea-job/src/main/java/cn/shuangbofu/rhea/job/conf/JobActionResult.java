@@ -1,5 +1,7 @@
 package cn.shuangbofu.rhea.job.conf;
 
+import cn.shuangbofu.rhea.common.enums.JobStatus;
+import com.google.common.collect.Lists;
 import lombok.Data;
 
 import java.util.List;
@@ -11,11 +13,12 @@ import java.util.List;
 public class JobActionResult {
     private PublishInfo publishInfo;
     private String applicationId;
+    private JobStatus executeStatus;
     /**
      * 日志key以 固定日志类型开头。
      * PUBLISH, SUBMIT, RUN(STOP), RESTART(STOP)
      */
-    private List<String> logKeys;
+    private List<String> logKeys = Lists.newArrayList();
 
     public JobActionResult() {
         publishInfo = new PublishInfo();
@@ -31,7 +34,6 @@ public class JobActionResult {
         private String logKey;
         private boolean valid;
         private boolean clean;
-
         /**
          * 其他配置
          */

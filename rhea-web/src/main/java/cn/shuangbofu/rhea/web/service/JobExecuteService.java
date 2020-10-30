@@ -5,6 +5,8 @@ import cn.shuangbofu.rhea.job.conf.JobActionResult;
 import cn.shuangbofu.rhea.job.conf.params.ClusterParam;
 import cn.shuangbofu.rhea.job.conf.params.ComponentParam;
 import cn.shuangbofu.rhea.job.conf.params.Param;
+import cn.shuangbofu.rhea.job.event.Event;
+import cn.shuangbofu.rhea.job.event.EventListener;
 import cn.shuangbofu.rhea.job.job.FlinkJob;
 import cn.shuangbofu.rhea.job.job.JobRunner;
 import cn.shuangbofu.rhea.job.utils.JSON;
@@ -31,7 +33,7 @@ import java.util.concurrent.TimeUnit;
  * Created by shuangbofu on 2020/10/30 上午11:35
  */
 @Service
-public class JobExecuteService {
+public class JobExecuteService implements EventListener {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(JobExecuteService.class);
     private final ExecutorService executorService = new ThreadPoolExecutor(10, 50,
@@ -45,38 +47,74 @@ public class JobExecuteService {
     @Autowired
     private JobManager jobManager;
 
+    @Autowired
+    private JobCreator jobCreator;
+
+    @Autowired
+    private LogService logService;
+
     public boolean executeCommand(Long actionId, String command) {
+        JobRunner runner = getRunner(actionId).setupLogger(command);
+        runner.setParams(getParams(runner.getFlinkJob().getResult().getPublishInfo()));
         if (Command.STOP.equals(command)) {
-            JobRunner jobRunner = jobManager.checkRunning(actionId);
-            JobActionResult.PublishInfo info = jobRunner.getFlinkJob().getResult().getPublishInfo();
-            jobRunner.setParams(getParams(info.getClusterId(), info.getComponentId()));
-            jobRunner.stop();
+            if (!runner.isRunning()) {
+                throw new RuntimeException("没有在运行中!");
+            }
+            runner.stop();
         } else {
             executorService.execute(() -> {
-                if (Command.PUBLISH.equals(command)) {
-
+                if (Command.KILL.equals(command)) {
+                    if (!runner.isExecuting()) {
+                        throw new RuntimeException("没有在执行执行！");
+                    }
+                    runner.kill();
+                } else {
+                    if (Command.PUBLISH.equals(command)) {
+                        runner.publish();
+                    } else if (Command.RUN.equals(command)) {
+                        runner.run();
+                    } else if (Command.SUBMIT.equals(command)) {
+                        runner.submit();
+                    }
                 }
+                runner.closeLogger();
             });
         }
-        return false;
+        return true;
     }
 
     public JobRunner createRunner(Long actionId) {
         FlinkJob flinkJob = jobManager.getFlinkJob(actionId);
-
-        return null;
+        List<Param> params = getParams(flinkJob.getResult().getPublishInfo());
+        JobRunner jobRunner = new JobRunner(flinkJob, params);
+        jobRunner.addListener(jobManager);
+        jobRunner.addListener(jobCreator);
+        jobRunner.addListener(logService);
+        jobRunner.addListener(this);
+        return jobRunner;
     }
 
     public JobRunner getRunner(Long actionId) {
         return runnerCache.computeIfAbsent(actionId, i -> createRunner(actionId));
     }
 
-    public List<Param> getParams(Long clusterId, Long componentId) {
-        ClusterConf conf = clusterConfDao.findOneById(clusterId);
+    /**
+     * 获取最新参数配置（集群、组件）
+     *
+     * @param info
+     * @return
+     */
+    public List<Param> getParams(JobActionResult.PublishInfo info) {
+        ClusterConf conf = clusterConfDao.findOneById(info.getClusterId());
         ClusterParam clusterParam = JSON.parseObject(conf.getParams(), ClusterParam.class);
-        ComponentConf conf2 = componentConfDao.findOneById(componentId);
+        ComponentConf conf2 = componentConfDao.findOneById(info.getComponentId());
         ComponentParam componentParam = JSON.parseObject(conf2.getParams(), ComponentParam.class);
         return Lists.newArrayList(clusterParam, componentParam);
+    }
+
+    @Override
+    public void handleEvent(Event event) {
+
     }
 
     public interface Command {

@@ -5,5 +5,7 @@ package cn.shuangbofu.rhea.job.conf.params;
  */
 public interface Param {
 
+    String name();
+
     String get(String key);
 }

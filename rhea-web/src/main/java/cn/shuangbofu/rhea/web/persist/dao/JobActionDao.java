@@ -2,6 +2,8 @@ package cn.shuangbofu.rhea.web.persist.dao;
 
 import cn.shuangbofu.rhea.common.enums.JobStatus;
 import cn.shuangbofu.rhea.common.utils.StringUtils;
+import cn.shuangbofu.rhea.job.conf.JobActionResult;
+import cn.shuangbofu.rhea.job.utils.JSON;
 import cn.shuangbofu.rhea.web.persist.entity.JobAction;
 import io.github.biezhi.anima.page.Page;
 
@@ -44,5 +46,18 @@ public class JobActionDao extends BaseDao<JobAction> {
 
     public JobAction findCurrent(Long jobId) {
         return findOneBy(q -> JOB_ID_WHERE.where(jobId).apply(q.where(JobAction::getJobId, jobId)));
+    }
+
+    public int updateResultStatus(Long actionId, JobActionResult result, JobStatus status) {
+        return updateById(actionId, q -> {
+            if (result != null) {
+                q.set(JobAction::getJobActionResult, JSON.toJSONString(result));
+            }
+            if (status != null) {
+                q.set(JobAction::getStatus, status);
+            }
+            q.where(JobAction::getId, actionId);
+            return q;
+        });
     }
 }

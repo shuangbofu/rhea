@@ -1,8 +1,10 @@
 package cn.shuangbofu.rhea.web.service;
 
 import cn.shuangbofu.rhea.common.enums.JobType;
+import cn.shuangbofu.rhea.job.conf.JobActionResult;
 import cn.shuangbofu.rhea.job.conf.JobConf;
 import cn.shuangbofu.rhea.job.conf.JobText;
+import cn.shuangbofu.rhea.job.event.ActionUpdateEvent;
 import cn.shuangbofu.rhea.job.event.Event;
 import cn.shuangbofu.rhea.job.event.EventListener;
 import cn.shuangbofu.rhea.job.job.FlinkJarJob;
@@ -16,7 +18,6 @@ import cn.shuangbofu.rhea.web.persist.dao.JobDetailDao;
 import cn.shuangbofu.rhea.web.persist.entity.Job;
 import cn.shuangbofu.rhea.web.persist.entity.JobAction;
 import cn.shuangbofu.rhea.web.persist.entity.JobDetail;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -29,12 +30,6 @@ public class JobCreator implements EventListener {
     private final JobDetailDao jobDetailDao = Daos.jobDetail();
     private final JobActionDao jobActionDao = Daos.jobAction();
 
-    @Autowired
-    private LogService logService;
-
-    @Autowired
-    private JobManager jobManager;
-
     public FlinkJob createJob(Long actionId) {
         JobAction action = jobActionDao.findOneById(actionId);
         Long jobId = action.getJobId();
@@ -46,17 +41,25 @@ public class JobCreator implements EventListener {
         if (jobType.equals(JobType.FLINK_SQL)) {
             flinkJob = new FlinkSqlJob(jobId, job.getJobName(), actionId, action.getStatus(),
                     JSON.parseObject(jobDetail.getText(), JobText.class),
-                    JSON.parseObject(jobDetail.getConf(), JobConf.class));
+                    JSON.parseObject(jobDetail.getConf(), JobConf.class),
+                    JSON.parseObject(action.getJobActionResult(), JobActionResult.class));
         } else {
             flinkJob = new FlinkJarJob(jobId, job.getJobName(), actionId, action.getStatus(),
                     JSON.parseObject(jobDetail.getText(), JobText.class),
-                    JSON.parseObject(jobDetail.getConf(), JobConf.class));
+                    JSON.parseObject(jobDetail.getConf(), JobConf.class),
+                    JSON.parseObject(action.getJobActionResult(), JobActionResult.class));
         }
         return flinkJob;
     }
 
     @Override
     public void handleEvent(Event event) {
-
+        if (event instanceof ActionUpdateEvent) {
+            ActionUpdateEvent actionUpdateEvent = (ActionUpdateEvent) event;
+            jobActionDao.updateResultStatus(
+                    actionUpdateEvent.getActionId(),
+                    actionUpdateEvent.getResult(),
+                    actionUpdateEvent.getStatus());
+        }
     }
 }

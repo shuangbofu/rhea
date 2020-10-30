@@ -138,12 +138,14 @@ public class JobService {
 
     public boolean publishJob(JobPublishParam param) {
         JobAction action = new JobAction()
+                .setJobId(param.getJobId())
                 .setStatus(JobStatus.PENDING)
+                .setVersion(param.getVersion())
                 .setCurrent(false)
                 .setComponentId(param.getComponentId())
                 .setClusterId(param.getClusterId())
                 .setPublishDesc(param.getPublishDesc())
-                .setJobActionConf(JSON.toJSONString(new JobActionConf()))
+//                .setJobActionConf(JSON.toJSONString(new JobActionConf()))
                 .setJobActionResult(JSON.toJSONString(new JobActionResult()))
                 .setCreateUser(CurrentLoginUser.getUser())
                 .setModifyUser(CurrentLoginUser.getUser());
