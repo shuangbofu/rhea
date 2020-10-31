@@ -5,6 +5,7 @@ import cn.shuangbofu.rhea.job.conf.JobActionResult;
 import cn.shuangbofu.rhea.job.conf.JobConf;
 import cn.shuangbofu.rhea.job.conf.JobText;
 import lombok.Getter;
+import lombok.experimental.Accessors;
 
 /**
  * Created by shuangbofu on 2020/10/18 下午5:35
@@ -12,6 +13,7 @@ import lombok.Getter;
  * @author shuangbofu
  */
 @Getter
+@Accessors(chain = true)
 public abstract class FlinkJob {
 
     protected final String jobName;
@@ -38,10 +40,6 @@ public abstract class FlinkJob {
         return jobId;
     }
 
-    public void launching() {
-
-    }
-
     public void setRunner(JobRunner runner) {
         this.runner = runner;
     }
@@ -59,6 +57,12 @@ public abstract class FlinkJob {
     }
 
     public void publish() {
+        runner.getExecutor().local("sh /tmp/schedule_sleep.sh");
+
+        runner.logger().info("创建checkpoint文件夹");
+        String hdfsAddress = runner.getParamStore().getValue("hdfsAddress");
+        String cmd = String.format("hdfs dfs -mkdir -p %s/%s/checkpoint", hdfsAddress + "/flink", jobName);
+        runner.getExecutor().ssh(cmd, false);
 
     }
 

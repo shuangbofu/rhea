@@ -1,16 +1,19 @@
 package cn.shuangbofu.rhea.job.conf.params;
 
+import cn.shuangbofu.rhea.common.utils.StringUtils;
+import lombok.Data;
+
 /**
  * Created by shuangbofu on 2020/10/30 下午12:59
  */
-public class ClusterParam implements Param {
-
-    public static final String USERNAME = "username";
-    public static final String PORT = "port";
-    public static final String HOST = "host";
-    public static final String MASTER = "master";
-    public static final String WORKERS = "workers";
-    public static final String PRIVATE_KEY_PATH = "privateKeyPath";
+@Data
+public class ClusterParam extends AbstractParam {
+    private String username;
+    private String master;
+    private String workers;
+    private String privateKeyPath;
+    private String rsAddress;
+    private String hdfsAddresses;
 
     @Override
     public String name() {
@@ -19,6 +22,22 @@ public class ClusterParam implements Param {
 
     @Override
     public String get(String key) {
+        String s = super.get(key);
+        if (s != null) {
+            return s;
+        }
+        if ("port".equals(key) || "host".equals(key)) {
+            String master = super.get("master");
+            if (StringUtils.isNotEmpty(master)) {
+                String[] split = master.split(":");
+                if (split.length > 1 && "port".equals(key)) {
+                    return split[1];
+                }
+                if (split.length > 0 && "host".equals(key)) {
+                    return split[0];
+                }
+            }
+        }
         return null;
     }
 }

@@ -12,4 +12,10 @@ public class FlinkJarJob extends FlinkJob {
     public FlinkJarJob(Long jobId, String jobName, Long actionId, JobStatus jobStatus, JobText text, JobConf conf, JobActionResult result) {
         super(jobId, jobName, actionId, jobStatus, text, conf, result);
     }
+
+    @Override
+    public void publish() {
+        super.publish();
+        
+    }
 }

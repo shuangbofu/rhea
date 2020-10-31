@@ -2,10 +2,9 @@ package cn.shuangbofu.rhea.job.job;
 
 import cn.shuangbofu.rhea.job.JobLogger;
 import cn.shuangbofu.rhea.job.conf.params.ParamStore;
-import cn.shuangbofu.rhea.job.job.shell.CmdProcess;
 import cn.shuangbofu.rhea.job.job.shell.IProcess;
 import cn.shuangbofu.rhea.job.job.shell.SshHelp;
-import cn.shuangbofu.rhea.job.job.shell.SshProcess;
+import cn.shuangbofu.rhea.job.utils.Shell;
 import com.google.common.collect.Lists;
 import org.apache.commons.io.FileUtils;
 
@@ -20,9 +19,9 @@ public class RemoteExecutor {
 
     private final List<SshHelp> workerSshHelps = Lists.newArrayList();
     private final SshHelp masterSshHelp;
-    private final JobLogger logger;
     private final Object lock = new Object();
-    private IProcess currentProcess;
+    private final JobLogger logger;
+    IProcess process;
 
     public RemoteExecutor(ParamStore store, JobLogger logger) {
         this.logger = logger;
@@ -52,10 +51,10 @@ public class RemoteExecutor {
 
     public void createFile2Remote(String content, String remotePath, boolean all) {
         try {
-            String localPath = "/tmp/" + System.currentTimeMillis();
+            String localPath = "/tmp/tmp_copy_file/" + System.currentTimeMillis();
             FileUtils.writeStringToFile(new File(localPath), content, "UTF-8");
             scp(localPath, remotePath, all);
-            new CmdProcess(Lists.newArrayList("rm " + localPath), logger).execute();
+            Shell.execute("rm " + localPath, logger);
         } catch (IOException e) {
             throw new RuntimeException("write file error");
         }
@@ -63,16 +62,21 @@ public class RemoteExecutor {
 
     public void cancel() {
         synchronized (lock) {
-            if (currentProcess != null) {
-                logger.info("取消执行，进程号：" + currentProcess.getProcessId());
-                currentProcess.kill();
+            logger.info("get:{}", process);
+            if (process != null) {
+                process.kill();
             }
         }
     }
 
-    private void setCurrent(SshProcess sshProcess) {
+    private void setCurrent(IProcess process) {
         synchronized (lock) {
-            currentProcess = sshProcess;
+            this.process = process;
+            logger.info("set: {}", process);
         }
+    }
+
+    public void local(String cmd) {
+        Shell.execute(cmd, logger, this::setCurrent);
     }
 }

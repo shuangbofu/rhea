@@ -1,5 +1,6 @@
 package cn.shuangbofu.rhea.job.job;
 
+import cn.shuangbofu.rhea.common.LogData;
 import cn.shuangbofu.rhea.common.utils.FileUtil;
 import cn.shuangbofu.rhea.job.JobLogger;
 import com.google.common.collect.Lists;
@@ -47,7 +48,10 @@ public class FileLogger implements JobLogger {
 
 
     private String format(String s, Object... args) {
-        return String.format(s.replace("{}", "%s"), args);
+        if (args != null && args.length > 0) {
+            return String.format(s.replace("{}", "%s"), args);
+        }
+        return s;
     }
 
     @Override
@@ -57,7 +61,7 @@ public class FileLogger implements JobLogger {
 
     @Override
     public String getKey() {
-        return null;
+        return name;
     }
 
     @Override
@@ -83,17 +87,22 @@ public class FileLogger implements JobLogger {
 //        logger.warn(format(s, args));
 //    }
 
-    public FileUtil.LogData getLog(int offset, int length) throws IOException {
+    @Override
+    public LogData getLog(int offset, int length) {
         if (logFile != null) {
             File file = new File(logFile.getParent(), logFile.getName());
-            return FileUtil.readUtf8File(file, offset, length);
+            try {
+                return FileUtil.readUtf8File(file, offset, length);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
         throw new RuntimeException("log not exist");
     }
 
     @Override
     public List<FileUtil.LogResult> close() {
-        info("关闭日志({})", name);
+        info("close log {}{}.log", DIR, name);
         logger.removeAllAppenders();
         fileAppender.close();
         consoleAppender.close();

@@ -36,7 +36,7 @@ public class SshProcess implements IProcess {
 
     @Override
     public void kill() {
-        SshProcess killProcess = new SshProcess(username, host, port, privateKeyPath, sshCmd("kill -9 " + cmdProcess.getProcessId()), logger);
+        SshProcess killProcess = new SshProcess(username, host, port, privateKeyPath, "kill -9 " + cmdProcess.getProcessId(), logger);
         killProcess.execute();
     }
 

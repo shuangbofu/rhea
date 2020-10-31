@@ -20,6 +20,7 @@ public class JobLog extends Model<JobLog> {
     private Boolean deleted;
     private String env;
 
+    @Column(name = "`key`")
     private String key;
     private byte[] log;
     private int startByte;

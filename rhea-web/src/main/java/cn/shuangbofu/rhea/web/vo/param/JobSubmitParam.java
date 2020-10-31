@@ -11,4 +11,5 @@ public class JobSubmitParam {
     /**
      * 其他提交时的参数
      */
+    private Boolean stopCurrent;
 }

@@ -60,7 +60,7 @@ public abstract class BaseDao<T extends Model<T>> {
 
     public void insertBatch(List<T> models) {
         Anima.atomic(() -> models.forEach(this::insert)).catchException(e -> {
-            throw new RuntimeException("batch insert error!");
+            throw new RuntimeException("batch insert error!", e);
         });
     }
 

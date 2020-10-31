@@ -1,5 +1,6 @@
 package cn.shuangbofu.rhea.common.utils;
 
+import cn.shuangbofu.rhea.common.LogData;
 import cn.shuangbofu.rhea.common.tuple.TwoTuple;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -112,14 +113,6 @@ public class FileUtil {
 
         // Don't know what it is, will just set it as 0
         return offset;
-    }
-
-    @Data
-    @AllArgsConstructor
-    public static class LogData {
-        private int offset;
-        private int length;
-        private String value;
     }
 
     @Data

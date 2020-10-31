@@ -1,6 +1,7 @@
 package cn.shuangbofu.rhea.web.service;
 
 import cn.shuangbofu.rhea.common.DefaultThreadFactory;
+import cn.shuangbofu.rhea.common.enums.JobStatus;
 import cn.shuangbofu.rhea.job.conf.JobActionResult;
 import cn.shuangbofu.rhea.job.conf.params.ClusterParam;
 import cn.shuangbofu.rhea.job.conf.params.ComponentParam;
@@ -53,32 +54,32 @@ public class JobExecuteService implements EventListener {
     private LogService logService;
 
     public boolean executeCommand(Long actionId, String command) {
-        JobRunner runner = getRunner(actionId)
-                .setupLogger(command);
+        JobRunner runner = getRunner(actionId);
         runner.setParams(getParams(runner.getFlinkJob().getResult().getPublishInfo()));
         if (Command.STOP.equals(command)) {
             if (!runner.isRunning()) {
                 throw new RuntimeException("没有在运行中!");
             }
             runner.stop();
+            // 停止后关闭日志
+            runner.closeLogger();
+        } else if (Command.KILL.equals(command)) {
+            if (!runner.isExecuting()) {
+                throw new RuntimeException("没有在执行！");
+            }
+            runner.kill();
         } else {
             executorService.execute(() -> {
-                if (Command.KILL.equals(command)) {
-                    if (!runner.isExecuting()) {
-                        throw new RuntimeException("没有在执行执行！");
-                    }
-                    runner.kill();
-                } else {
-//                    if (Command.PUBLISH.equals(command)) {
-//                        runner.publish();
-//                    } else if (Command.RUN.equals(command)) {
-//                        runner.run();
-//                    } else if (Command.SUBMIT.equals(command)) {
-//                        runner.submit();
-//                    }
-                    runner.execute(command);
+                if (Command.SUBMIT.equals(command) && !runner.getFlinkJob().getJobStatus().equals(JobStatus.PUBLISHED)) {
+                    throw new RuntimeException("没有发布，不能提交！");
                 }
-                runner.closeLogger();
+                try {
+                    runner.setupLogger(command).execute(command);
+                } catch (Exception e) {
+                    runner.logger().error(e.getMessage(), e);
+                } finally {
+                    runner.closeLogger();
+                }
             });
         }
         return true;
@@ -88,6 +89,7 @@ public class JobExecuteService implements EventListener {
         FlinkJob flinkJob = jobCreator.getFlinkJob(actionId);
         List<Param> params = getParams(flinkJob.getResult().getPublishInfo());
         JobRunner jobRunner = new JobRunner(flinkJob, params);
+        flinkJob.setRunner(jobRunner);
         jobRunner.addListener(JobManager.INSTANCE);
         jobRunner.addListener(jobCreator);
         jobRunner.addListener(logService);
@@ -106,9 +108,15 @@ public class JobExecuteService implements EventListener {
      * @return
      */
     public List<Param> getParams(JobActionResult.PublishInfo info) {
-        ClusterConf conf = clusterConfDao.findOneById(info.getClusterId());
+        ClusterConf conf = clusterConfDao.findValidOneById(info.getClusterId());
+        if (conf == null) {
+            throw new RuntimeException("cluster not found");
+        }
         ClusterParam clusterParam = JSON.parseObject(conf.getParams(), ClusterParam.class);
         ComponentConf conf2 = componentConfDao.findOneById(info.getComponentId());
+        if (conf2 == null) {
+            throw new RuntimeException("component not found");
+        }
         ComponentParam componentParam = JSON.parseObject(conf2.getParams(), ComponentParam.class);
         return Lists.newArrayList(clusterParam, componentParam);
     }

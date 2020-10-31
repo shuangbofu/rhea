@@ -25,10 +25,9 @@ public class JobAction extends Model<JobAction> {
 
     private Long jobId;
     private Integer version;
-    private String jobActionConf;
     private String jobActionResult;
     private String publishDesc;
-    private JobStatus status;
+    private JobStatus jobStatus;
 
     private Long clusterId;
     private Long componentId;

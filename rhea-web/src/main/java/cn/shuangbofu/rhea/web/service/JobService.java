@@ -1,11 +1,11 @@
 package cn.shuangbofu.rhea.web.service;
 
+import cn.shuangbofu.rhea.common.LogData;
 import cn.shuangbofu.rhea.common.enums.JobStatus;
-import cn.shuangbofu.rhea.job.conf.JobActionConf;
 import cn.shuangbofu.rhea.job.conf.JobActionResult;
 import cn.shuangbofu.rhea.job.conf.JobConf;
 import cn.shuangbofu.rhea.job.conf.JobText;
-import cn.shuangbofu.rhea.job.job.JobManager;
+import cn.shuangbofu.rhea.job.job.Command;
 import cn.shuangbofu.rhea.job.utils.JSON;
 import cn.shuangbofu.rhea.web.CurrentLoginUser;
 import cn.shuangbofu.rhea.web.persist.dao.Daos;
@@ -24,6 +24,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -36,10 +37,10 @@ public class JobService {
     private final JobActionDao jobActionDao = Daos.jobAction();
 
     @Autowired
-    private JobManager jobManager;
+    private JobExecuteService jobExecuteService;
 
     @Autowired
-    private JobExecuteService jobExecuteService;
+    private LogService logService;
 
     public List<JobVO> listJobs() {
         return jobDao.findAll().stream().map(this::job2VO).collect(Collectors.toList());
@@ -103,9 +104,8 @@ public class JobService {
         return new JobActionVO()
                 .setJob(job2VO(job))
                 .setVersion(action.getVersion())
-                .setJobStatus(action.getStatus())
+                .setJobStatus(action.getJobStatus())
                 .setPublishDesc(action.getPublishDesc())
-                .setConf(JSON.parseObject(action.getJobActionConf(), JobActionConf.class))
                 .setResult(JSON.parseObject(action.getJobActionResult(), JobActionResult.class));
     }
 
@@ -138,48 +138,81 @@ public class JobService {
     }
 
     public boolean publishJob(JobPublishParam param) {
-        JobAction action = new JobAction()
-                .setJobId(param.getJobId())
-                .setStatus(JobStatus.PENDING)
-                .setVersion(param.getVersion())
+        Long actionId = param.getActionId();
+        JobAction action = null;
+        if (actionId != null) {
+            action = jobActionDao.findOneById(param.getActionId());
+        }
+        if (action == null) {
+            action = new JobAction()
+                    .setJobId(param.getJobId())
+                    .setVersion(param.getVersion())
+                    .setCreateUser(CurrentLoginUser.getUser())
+                    .setJobActionResult(JSON.toJSONString(new JobActionResult(param.getClusterId(), param.getComponentId())));
+            actionId = jobActionDao.insert(action);
+        } else {
+            JobActionResult jobActionResult = JSON.parseObject(action.getJobActionResult(), JobActionResult.class);
+            jobActionResult.getPublishInfo().setClusterId(param.getClusterId()).setComponentId(param.getComponentId());
+            action.setJobActionResult(JSON.toJSONString(jobActionResult));
+        }
+        action
+                .setJobStatus(JobStatus.PENDING)
                 .setCurrent(false)
                 .setComponentId(param.getComponentId())
                 .setClusterId(param.getClusterId())
                 .setPublishDesc(param.getPublishDesc())
-//                .setJobActionConf(JSON.toJSONString(new JobActionConf()))
-                .setJobActionResult(JSON.toJSONString(new JobActionResult()))
-                .setCreateUser(CurrentLoginUser.getUser())
                 .setModifyUser(CurrentLoginUser.getUser());
-        Long actionId = jobActionDao.insert(action);
+        jobActionDao.updateModel(action);
         // TODO 部署到集群上，生成记录，记录部署日志
-        return jobExecuteService.executeCommand(actionId, JobExecuteService.Command.PUBLISH);
+        return jobExecuteService.executeCommand(actionId, Command.PUBLISH);
     }
 
     public boolean submitJob(JobSubmitParam param) {
         JobAction action = jobActionDao.findOneById(param.getActionId());
         Long jobId = action.getJobId();
         JobAction current = jobActionDao.findCurrent(jobId);
-
+        if (param.getStopCurrent()) {
+            jobExecuteService.executeCommand(current.getId(), Command.STOP);
+        }
+        jobActionDao.changeCurrent(action.getId(), current.getId());
         // TODO 检查集群组件配置是否异常，异常提示重新设置执行环境配置。（修改过程也需要记录到日志）
-
         // TODO 检查当前是否可以执行，如运行中需要强制停止
-
         // TODO 提交，复制发布目录配置文件到执行目录
-        return jobExecuteService.executeCommand(action.getId(), JobExecuteService.Command.SUBMIT);
+        return jobExecuteService.executeCommand(action.getId(), Command.SUBMIT);
     }
 
     public boolean runJob(Long actionId) {
         // 执行启动任务
-        return jobExecuteService.executeCommand(actionId, JobExecuteService.Command.RUN);
+        return jobExecuteService.executeCommand(actionId, Command.RUN);
     }
 
     public boolean stopJob(Long actionId) {
         // 停止运行中的任务
-        return jobExecuteService.executeCommand(actionId, JobExecuteService.Command.STOP);
+        return jobExecuteService.executeCommand(actionId, Command.STOP);
     }
 
     public boolean killJob(Long actionId) {
         // 停止启动中的任务
-        return jobExecuteService.executeCommand(actionId, JobExecuteService.Command.KILL);
+        return jobExecuteService.executeCommand(actionId, Command.KILL);
+    }
+
+    private JobActionResult getActionResult(Long actionId) {
+        return jobActionDao.getActionResult(actionId);
+    }
+
+    public Map<String, LogData> getHistoryLogs(Long actionId) {
+        List<String> logKeys = getActionResult(actionId).getRecords().stream()
+                .filter(JobActionResult.Record::isEnd)
+                .map(JobActionResult.Record::getLogKey)
+                .collect(Collectors.toList());
+        return logService.getHistoryLogs(logKeys);
+    }
+
+    public LogData getCurrentLog(Long actionId, Integer offset, Integer length) {
+        String key = getActionResult(actionId).getCurrentLogKey();
+        if (key != null) {
+            return logService.getJobLog(key, offset, length);
+        }
+        return null;
     }
 }

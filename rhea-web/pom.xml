@@ -38,6 +38,13 @@
             <artifactId>anima</artifactId>
             <version>0.2.6</version>
         </dependency>
+
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
+            <version>8.0.19</version>
+        </dependency>
+
         <dependency>
             <groupId>cn.shuangbofu</groupId>
             <artifactId>rhea-job</artifactId>

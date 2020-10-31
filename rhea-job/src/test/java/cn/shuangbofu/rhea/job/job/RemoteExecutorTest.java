@@ -17,7 +17,7 @@ public class RemoteExecutorTest {
                 "  \n" +
                 "for((i=1;i<=" + count + ";i++));  \n" +
                 "do   \n" +
-                "echo $(expr $i \\* 3 + 1);  \n" +
+                "echo $(expr $i \\* 1 + 0);  \n" +
                 "sleep 1s \n" +
                 "done  ";
     }
@@ -35,17 +35,20 @@ public class RemoteExecutorTest {
         );
         RemoteExecutor remoteExecutor = new RemoteExecutor(paramStore, new FileLogger("john", "test_rhea", false));
         String shellPath = "/tmp/schedule_sleep.sh";
-        remoteExecutor.createFile2Remote(scheduledShell(30), shellPath, false);
-        remoteExecutor.ssh("ls -Slh", false);
+//        remoteExecutor.createFile2Remote(scheduledShell(120), shellPath, false);
+//        remoteExecutor.ssh("ls -Slh", false);
+
         new Thread(() -> {
             try {
-                Thread.sleep(10000);
+                Thread.sleep(2000);
+                System.out.println("cancellll");
                 remoteExecutor.cancel();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
         }).start();
-        remoteExecutor.ssh("sh " + shellPath, false);
+        remoteExecutor.local("sh " + shellPath);
+//        remoteExecutor.ssh("sh " + shellPath, false);
     }
 
     static class TestParam implements Param {

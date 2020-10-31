@@ -1,5 +1,6 @@
 package cn.shuangbofu.rhea.web.controller;
 
+import cn.shuangbofu.rhea.common.LogData;
 import cn.shuangbofu.rhea.web.service.JobService;
 import cn.shuangbofu.rhea.web.vo.*;
 import cn.shuangbofu.rhea.web.vo.form.JobForm;
@@ -9,11 +10,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Created by shuangbofu on 2020/10/18 上午10:57
  */
-@RequestMapping("/stream/job")
+@RequestMapping("/api/job")
 @RestController
 public class JobController {
 
@@ -105,5 +107,17 @@ public class JobController {
     @PostMapping("/kill/{actionId}")
     public Result<Boolean> killJob(@PathVariable("actionId") Long actionId) {
         return Result.success(jobService.killJob(actionId));
+    }
+
+    @GetMapping("/logs")
+    public Result<Map<String, LogData>> getHistoryLogs(Long actionId) {
+        return Result.success(jobService.getHistoryLogs(actionId));
+    }
+
+    @GetMapping("/log")
+    public Result<LogData> getLog(@RequestParam(name = "actionId") Long actionId,
+                                  @RequestParam(name = "offset") Integer offset,
+                                  @RequestParam(name = "length", required = false, defaultValue = "3000") Integer length) {
+        return Result.success(jobService.getCurrentLog(actionId, offset, length));
     }
 }

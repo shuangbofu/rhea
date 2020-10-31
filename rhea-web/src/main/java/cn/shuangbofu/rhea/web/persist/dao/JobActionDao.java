@@ -31,7 +31,7 @@ public class JobActionDao extends BaseDao<JobAction> {
     public Page<JobAction> getAllPageByFilter(int num, int size, List<Long> jobIds, JobStatus jobStatus, Long clusterId, String modifyUser) {
         return findAllPageBy(num, size, q -> {
             if (jobStatus != null) {
-                q.where(JobAction::getStatus, jobStatus);
+                q.where(JobAction::getJobStatus, jobStatus);
             }
             if (clusterId != null) {
                 q.where(JobAction::getClusterId, clusterId);
@@ -54,10 +54,25 @@ public class JobActionDao extends BaseDao<JobAction> {
                 q.set(JobAction::getJobActionResult, JSON.toJSONString(result));
             }
             if (status != null) {
-                q.set(JobAction::getStatus, status);
+                q.set(JobAction::getJobStatus, status);
             }
             q.where(JobAction::getId, actionId);
             return q;
         });
+    }
+
+    public void changeCurrent(Long newActionId, Long oldActionId) {
+        Daos.atomic(() -> {
+            updateById(oldActionId, q -> q.set(JobAction::getCurrent, false));
+            updateById(newActionId, q -> q.set(JobAction::getCurrent, true));
+        }, "change error");
+    }
+
+    public JobActionResult getActionResult(Long actionId) {
+        JobAction action = findOneBy(q -> q.select("job_action_result").where("id", actionId));
+        if (action != null) {
+            return JSON.parseObject(action.getJobActionResult(), JobActionResult.class);
+        }
+        return null;
     }
 }

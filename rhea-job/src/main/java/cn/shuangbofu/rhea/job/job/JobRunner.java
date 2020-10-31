@@ -3,12 +3,14 @@ package cn.shuangbofu.rhea.job.job;
 import cn.shuangbofu.rhea.common.enums.JobStatus;
 import cn.shuangbofu.rhea.common.utils.FileUtil;
 import cn.shuangbofu.rhea.job.JobLogger;
+import cn.shuangbofu.rhea.job.conf.JobActionResult;
 import cn.shuangbofu.rhea.job.conf.params.Param;
 import cn.shuangbofu.rhea.job.conf.params.ParamStore;
 import cn.shuangbofu.rhea.job.event.ActionUpdateEvent;
 import cn.shuangbofu.rhea.job.event.EventHandler;
 import cn.shuangbofu.rhea.job.event.JobEvent;
 import cn.shuangbofu.rhea.job.event.LogEvent;
+import cn.shuangbofu.rhea.job.job.shell.ProcessFailureException;
 import cn.shuangbofu.rhea.job.utils.YarnUtil;
 import lombok.Getter;
 import org.apache.hadoop.yarn.exceptions.YarnException;
@@ -17,6 +19,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * Created by shuangbofu on 2020/10/30 上午11:17
@@ -35,17 +38,26 @@ public class JobRunner extends EventHandler {
         this.flinkJob = flinkJob;
         paramStore = new ParamStore();
         setParams(params);
+        setExecutor();
     }
 
     public void setParams(List<Param> params) {
         paramStore.addParams(params);
+    }
+
+    private void setExecutor() {
         executor = new RemoteExecutor(paramStore, logger);
     }
 
     public JobRunner setupLogger(String command) {
         // 创建logger
-        String logName = String.format("%s_%s_%s", flinkJob.getActionId(), System.currentTimeMillis(), command);
+        String logName = String.format("JOB_%s_%s_%s", flinkJob.getActionId(), System.currentTimeMillis(), command);
         logger = new FileLogger(logName, flinkJob.getJobName(), false);
+        logger.info("日志初始化完成");
+
+        setExecutor();
+        updateResult(result -> result.start(logger.getKey()));
+        fireEventListeners(new LogEvent(logger));
         return this;
     }
 
@@ -54,15 +66,16 @@ public class JobRunner extends EventHandler {
     }
 
     public void stop() {
-        boolean success = killApp(paramStore.getValue("rsAddress"), flinkJob.getResult().getApplicationId());
+        boolean success = killApp(rsAddress(), flinkJob.getResult().getApplicationId());
         if (!success) {
             throw new RuntimeException("stop job error");
         }
-        updateStatus(JobStatus.STOPPED);
+        updateStatusAndResult(JobStatus.STOPPED, result -> result.setApplicationId(""));
         fireEventListeners(new JobEvent(flinkJob.getActionId()));
     }
 
     public void kill() {
+        logger.info("取消当前执行！");
         executor.cancel();
     }
 
@@ -79,10 +92,7 @@ public class JobRunner extends EventHandler {
     }
 
     private void setExecuting(JobStatus status) {
-        logger.info("任务开始" + status);
-        flinkJob.updateStatus(status);
-        flinkJob.getResult().setExecuteStatus(status);
-        fireEventListeners(new ActionUpdateEvent(flinkJob.getActionId(), flinkJob.getResult(), status));
+        updateStatusAndResult(JobStatus.EXECUTING, result -> result.setExecuteStatus(status));
     }
 
     private JobStatus getStatus() {
@@ -94,6 +104,17 @@ public class JobRunner extends EventHandler {
         fireEventListeners(new ActionUpdateEvent(flinkJob.getActionId(), status));
     }
 
+    private void updateStatusAndResult(JobStatus status, Consumer<JobActionResult> consumer) {
+        flinkJob.updateStatus(status);
+        consumer.accept(flinkJob.getResult());
+        fireEventListeners(new ActionUpdateEvent(flinkJob.getActionId(), flinkJob.getResult(), status));
+    }
+
+    private void updateResult(Consumer<JobActionResult> consumer) {
+        consumer.accept(flinkJob.getResult());
+        fireEventListeners(new ActionUpdateEvent(flinkJob.getActionId(), flinkJob.getResult(), null));
+    }
+
     protected void execute() {
 
     }
@@ -101,12 +122,20 @@ public class JobRunner extends EventHandler {
     public void closeLogger() {
         if (logger != null) {
             List<FileUtil.LogResult> logResults = logger.close();
+            updateResult(result -> {
+                result.end(logger.getKey());
+                result.setCurrentLogKey(null);
+            });
             fireEventListeners(new LogEvent(logger.getKey(), logResults));
         }
     }
 
     public RemoteExecutor getExecutor() {
         return executor;
+    }
+
+    public JobLogger logger() {
+        return logger;
     }
 
     public ParamStore getParamStore() {
@@ -116,22 +145,31 @@ public class JobRunner extends EventHandler {
     public void execute(String command) {
         synchronized (lock) {
             JobStatus commandStatus = getCommandStatus(command);
+            logger.info("任务开始" + command);
             setExecuting(commandStatus);
             try {
                 jobExecute(command);
+                updateStatus(commandStatus);
             } catch (Exception e) {
-                logger.error("{}异常", command, e);
+                if (e instanceof ProcessFailureException) {
+                    ProcessFailureException processFailureException = (ProcessFailureException) e;
+                    logger.error(processFailureException.toString());
+                } else {
+                    logger.error("{}异常", e, command);
+                }
                 updateStatus(JobStatus.ERROR);
+                // 异常之后处理
                 checkAfterError(command);
+            } finally {
+                logger.info("执行结束！");
             }
-            updateStatus(commandStatus);
         }
     }
 
     private void checkAfterError(String command) {
         if (command.equals(Command.RUN)) {
             try {
-                String rsAddress = paramStore.getValue("rsAddress");
+                String rsAddress = rsAddress();
                 List<String> applicationIds = YarnUtil.getApplicationIds(rsAddress, flinkJob.getJobName());
                 if (applicationIds.size() > 0) {
                     logger.error("异常后yarn上app:", applicationIds);
@@ -169,7 +207,7 @@ public class JobRunner extends EventHandler {
         }
     }
 
-    private void jobExecute(String command) {
+    private void jobExecute(String command) throws Exception {
         switch (command) {
             case Command.PUBLISH:
                 flinkJob.publish();
@@ -179,11 +217,27 @@ public class JobRunner extends EventHandler {
                 break;
             case Command.RUN:
                 flinkJob.run();
+                List<String> applicationIds = YarnUtil.getApplicationIds(rsAddress(), flinkJob.getJobName());
+                logger.info("yarn上app：{}", applicationIds);
+                if (applicationIds.size() > 0) {
+                    updateResult(result -> result.setApplicationId(applicationIds.get(0)));
+                } else {
+                    throw new RuntimeException("启动失败！");
+                }
+
                 fireEventListeners(new JobEvent(flinkJob.getActionId(), this));
                 break;
             default:
                 throw new RuntimeException("not supported");
         }
+    }
+
+    public String getApplicationId() {
+        return null;
+    }
+
+    public String rsAddress() {
+        return paramStore.getValue("rsAddress");
     }
 
     static class Restart {

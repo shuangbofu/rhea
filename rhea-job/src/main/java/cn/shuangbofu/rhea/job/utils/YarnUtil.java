@@ -55,7 +55,7 @@ public class YarnUtil {
     }
 
     public static boolean isValid(String applicationId) {
-        Pattern pattern = compile("^application_\\d{13}_\\d{4,5,6}$");
+        Pattern pattern = compile("^application_\\d{13}_\\d{4,6}$");
         Matcher m = pattern.matcher(applicationId);
         return m.find();
     }

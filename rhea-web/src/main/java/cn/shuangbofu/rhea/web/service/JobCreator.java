@@ -1,5 +1,6 @@
 package cn.shuangbofu.rhea.web.service;
 
+import cn.shuangbofu.rhea.common.enums.JobStatus;
 import cn.shuangbofu.rhea.common.enums.JobType;
 import cn.shuangbofu.rhea.job.conf.JobActionResult;
 import cn.shuangbofu.rhea.job.conf.JobConf;
@@ -43,12 +44,12 @@ public class JobCreator implements EventListener {
         JobType jobType = job.getJobType();
         FlinkJob flinkJob;
         if (jobType.equals(JobType.FLINK_SQL)) {
-            flinkJob = new FlinkSqlJob(jobId, job.getJobName(), actionId, action.getStatus(),
+            flinkJob = new FlinkSqlJob(jobId, job.getJobName(), actionId, action.getJobStatus(),
                     JSON.parseObject(jobDetail.getText(), JobText.class),
                     JSON.parseObject(jobDetail.getConf(), JobConf.class),
                     JSON.parseObject(action.getJobActionResult(), JobActionResult.class));
         } else {
-            flinkJob = new FlinkJarJob(jobId, job.getJobName(), actionId, action.getStatus(),
+            flinkJob = new FlinkJarJob(jobId, job.getJobName(), actionId, action.getJobStatus(),
                     JSON.parseObject(jobDetail.getText(), JobText.class),
                     JSON.parseObject(jobDetail.getConf(), JobConf.class),
                     JSON.parseObject(action.getJobActionResult(), JobActionResult.class));
@@ -64,10 +65,11 @@ public class JobCreator implements EventListener {
     public void handleEvent(Event event) {
         if (event instanceof ActionUpdateEvent) {
             ActionUpdateEvent actionUpdateEvent = (ActionUpdateEvent) event;
+            JobStatus status = actionUpdateEvent.getStatus();
             jobActionDao.updateResultStatus(
                     actionUpdateEvent.getActionId(),
-                    actionUpdateEvent.getResult(),
-                    actionUpdateEvent.getStatus());
+                    actionUpdateEvent.getResult(), status
+            );
         }
     }
 }

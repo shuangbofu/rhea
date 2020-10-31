@@ -62,7 +62,7 @@ public class CmdProcess implements IProcess {
             throw new IllegalStateException("The process can only be used once.");
         }
 
-        logger.info("执行运行任务脚本 {}", cmd.toString());
+        logger.info("run script progress {}", cmd.toString());
         ProcessBuilder builder = new ProcessBuilder(cmd);
 
         builder.redirectErrorStream(true);
@@ -94,6 +94,7 @@ public class CmdProcess implements IProcess {
                 exitCode = process.waitFor();
             } catch (InterruptedException e) {
                 logger.info("Process interrupted. Exit code is " + exitCode, e);
+                throw new RuntimeException("执行中断");
             }
 
             completeLatch.countDown();
@@ -102,11 +103,9 @@ public class CmdProcess implements IProcess {
             outputGobbler.awaitCompletion(5000);
             errorGobbler.awaitCompletion(5000);
             logTuple = new TwoTuple<>(outputGobbler.getRecentLog(), errorGobbler.getRecentLog());
-
             if (exitCode != 0) {
-                String output = "正常日志:\n" + outputGobbler.getRecentLog() + "\n" + "异常日志:\n" + errorGobbler.getRecentLog();
-                throw new RuntimeException(output);
-//                throw new ProcessFailureException(exitCode, output);
+                String output = "normal:" + outputGobbler.getRecentLog() + "\n" + "error:" + errorGobbler.getRecentLog();
+                throw new ProcessFailureException(exitCode, output);
             }
 
         } finally {
@@ -122,7 +121,7 @@ public class CmdProcess implements IProcess {
             run();
         } catch (IOException e) {
             e.printStackTrace();
-            throw new RuntimeException("execute error");
+            throw new RuntimeException("execute error", e);
         }
     }
 

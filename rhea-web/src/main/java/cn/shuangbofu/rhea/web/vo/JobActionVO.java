@@ -1,7 +1,6 @@
 package cn.shuangbofu.rhea.web.vo;
 
 import cn.shuangbofu.rhea.common.enums.JobStatus;
-import cn.shuangbofu.rhea.job.conf.JobActionConf;
 import cn.shuangbofu.rhea.job.conf.JobActionResult;
 import lombok.Data;
 import lombok.experimental.Accessors;
@@ -16,6 +15,5 @@ public class JobActionVO extends BaseUserVO<JobActionVO> {
     private Integer version;
     private String publishDesc;
     private JobStatus jobStatus;
-    private JobActionConf conf;
     private JobActionResult result;
 }
