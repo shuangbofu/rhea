@@ -12,7 +12,7 @@ import java.util.Optional;
  * Created by shuangbofu on 2020/10/18 上午11:34
  */
 @Data
-public class JobActionResult {
+public class JobActionProcess {
     private PublishInfo publishInfo;
     private String applicationId;
     private JobStatus executeStatus;
@@ -24,11 +24,11 @@ public class JobActionResult {
     private List<String> logKeys = Lists.newArrayList();
     private List<Record> records = Lists.newArrayList();
 
-    public JobActionResult() {
+    public JobActionProcess() {
         publishInfo = new PublishInfo();
     }
 
-    public JobActionResult(Long clusterId, Long componentId) {
+    public JobActionProcess(Long clusterId, Long componentId) {
         this();
         getPublishInfo().setClusterId(clusterId);
         getPublishInfo().setComponentId(componentId);

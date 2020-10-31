@@ -2,7 +2,7 @@ package cn.shuangbofu.rhea.web.service;
 
 import cn.shuangbofu.rhea.common.LogData;
 import cn.shuangbofu.rhea.common.enums.JobStatus;
-import cn.shuangbofu.rhea.job.conf.JobActionResult;
+import cn.shuangbofu.rhea.job.conf.JobActionProcess;
 import cn.shuangbofu.rhea.job.conf.JobConf;
 import cn.shuangbofu.rhea.job.conf.JobText;
 import cn.shuangbofu.rhea.job.job.Command;
@@ -104,10 +104,10 @@ public class JobService {
     private JobActionVO action2VO(Job job, JobAction action) {
         return new JobActionVO()
                 .setJob(job2VO(job))
-                .setVersion(action.getVersion())
+                .setVersion(action.getJobVersion())
                 .setJobStatus(action.getJobStatus())
                 .setPublishDesc(action.getPublishDesc())
-                .setResult(JSON.parseObject(action.getJobActionResult(), JobActionResult.class));
+                .setResult(JSON.parseObject(action.getJobActionProcess(), JobActionProcess.class));
     }
 
     public PageVO<JobActionVO> getActionPage(PageQueryParam<ActionQueryParam> pageQueryParam) {
@@ -149,14 +149,14 @@ public class JobService {
         if (action == null) {
             action = new JobAction()
                     .setJobId(param.getJobId())
-                    .setVersion(param.getVersion())
+                    .setJobVersion(param.getVersion())
                     .setCreateUser(CurrentLoginUser.getUser())
-                    .setJobActionResult(JSON.toJSONString(new JobActionResult(param.getClusterId(), param.getComponentId())));
+                    .setJobActionProcess(JSON.toJSONString(new JobActionProcess(param.getClusterId(), param.getComponentId())));
             actionId = jobActionDao.insert(action);
         } else {
-            JobActionResult jobActionResult = JSON.parseObject(action.getJobActionResult(), JobActionResult.class);
-            jobActionResult.getPublishInfo().setClusterId(param.getClusterId()).setComponentId(param.getComponentId());
-            action.setJobActionResult(JSON.toJSONString(jobActionResult));
+            JobActionProcess jobActionProcess = JSON.parseObject(action.getJobActionProcess(), JobActionProcess.class);
+            jobActionProcess.getPublishInfo().setClusterId(param.getClusterId()).setComponentId(param.getComponentId());
+            action.setJobActionProcess(JSON.toJSONString(jobActionProcess));
         }
         action
                 .setJobStatus(JobStatus.PENDING)
@@ -175,9 +175,7 @@ public class JobService {
         Long jobId = action.getJobId();
         JobAction current = jobActionDao.findCurrent(jobId);
         if (current != null) {
-            if (param.getStopCurrent()) {
-                jobExecuteService.executeCommand(current.getId(), Command.STOP);
-            }
+            jobExecuteService.submitCheck(current.getId(), param);
             jobActionDao.changeCurrent(action.getId(), current.getId());
         }
         // TODO 检查集群组件配置是否异常，异常提示重新设置执行环境配置。（修改过程也需要记录到日志）
@@ -201,14 +199,14 @@ public class JobService {
         return jobExecuteService.executeCommand(actionId, Command.KILL);
     }
 
-    private JobActionResult getActionResult(Long actionId) {
+    private JobActionProcess getActionResult(Long actionId) {
         return jobActionDao.getActionResult(actionId);
     }
 
     public List<LogData> getHistoryLogs(Long actionId) {
         List<String> logKeys = getActionResult(actionId).getRecords().stream()
-                .filter(JobActionResult.Record::isEnd)
-                .map(JobActionResult.Record::getLogKey)
+                .filter(JobActionProcess.Record::isEnd)
+                .map(JobActionProcess.Record::getLogKey)
                 .collect(Collectors.toList());
         return logService.getHistoryLogs(logKeys);
     }

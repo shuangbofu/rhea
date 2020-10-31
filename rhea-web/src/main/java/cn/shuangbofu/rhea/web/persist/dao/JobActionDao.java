@@ -2,7 +2,7 @@ package cn.shuangbofu.rhea.web.persist.dao;
 
 import cn.shuangbofu.rhea.common.enums.JobStatus;
 import cn.shuangbofu.rhea.common.utils.StringUtils;
-import cn.shuangbofu.rhea.job.conf.JobActionResult;
+import cn.shuangbofu.rhea.job.conf.JobActionProcess;
 import cn.shuangbofu.rhea.job.utils.JSON;
 import cn.shuangbofu.rhea.web.persist.entity.JobAction;
 import io.github.biezhi.anima.page.Page;
@@ -47,10 +47,10 @@ public class JobActionDao extends BaseDao<JobAction> {
         return findOneBy(q -> JOB_ID_WHERE.where(jobId).apply(q.where(JobAction::getJobId, jobId)));
     }
 
-    public int updateResultStatus(Long actionId, JobActionResult result, JobStatus status) {
+    public int updateResultStatus(Long actionId, JobActionProcess result, JobStatus status) {
         return updateById(actionId, q -> {
             if (result != null) {
-                q.set(JobAction::getJobActionResult, JSON.toJSONString(result));
+                q.set(JobAction::getJobActionProcess, JSON.toJSONString(result));
             }
             if (status != null) {
                 q.set(JobAction::getJobStatus, status);
@@ -66,10 +66,10 @@ public class JobActionDao extends BaseDao<JobAction> {
         }, "change error");
     }
 
-    public JobActionResult getActionResult(Long actionId) {
-        JobAction action = findOneBy(q -> q.select("job_action_result").where("id", actionId));
+    public JobActionProcess getActionResult(Long actionId) {
+        JobAction action = findOneBy(q -> q.select("job_action_process").where("id", actionId));
         if (action != null) {
-            return JSON.parseObject(action.getJobActionResult(), JobActionResult.class);
+            return JSON.parseObject(action.getJobActionProcess(), JobActionProcess.class);
         }
         return null;
     }

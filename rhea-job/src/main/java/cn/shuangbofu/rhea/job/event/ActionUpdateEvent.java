@@ -1,7 +1,7 @@
 package cn.shuangbofu.rhea.job.event;
 
 import cn.shuangbofu.rhea.common.enums.JobStatus;
-import cn.shuangbofu.rhea.job.conf.JobActionResult;
+import cn.shuangbofu.rhea.job.conf.JobActionProcess;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
@@ -13,10 +13,10 @@ import lombok.Data;
 public class ActionUpdateEvent implements Event {
 
     private Long actionId;
-    private JobActionResult result;
+    private JobActionProcess result;
     private JobStatus status;
 
-    public ActionUpdateEvent(Long actionId, JobActionResult result) {
+    public ActionUpdateEvent(Long actionId, JobActionProcess result) {
         this(actionId, result, null);
     }
 

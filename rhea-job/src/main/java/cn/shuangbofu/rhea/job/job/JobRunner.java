@@ -3,7 +3,7 @@ package cn.shuangbofu.rhea.job.job;
 import cn.shuangbofu.rhea.common.enums.JobStatus;
 import cn.shuangbofu.rhea.common.utils.FileUtil;
 import cn.shuangbofu.rhea.job.JobLogger;
-import cn.shuangbofu.rhea.job.conf.JobActionResult;
+import cn.shuangbofu.rhea.job.conf.JobActionProcess;
 import cn.shuangbofu.rhea.job.conf.params.Param;
 import cn.shuangbofu.rhea.job.conf.params.ParamStore;
 import cn.shuangbofu.rhea.job.event.ActionUpdateEvent;
@@ -104,13 +104,13 @@ public class JobRunner extends EventHandler {
         fireEventListeners(new ActionUpdateEvent(flinkJob.getActionId(), status));
     }
 
-    private void updateStatusAndResult(JobStatus status, Consumer<JobActionResult> consumer) {
+    private void updateStatusAndResult(JobStatus status, Consumer<JobActionProcess> consumer) {
         flinkJob.updateStatus(status);
         consumer.accept(flinkJob.getResult());
         fireEventListeners(new ActionUpdateEvent(flinkJob.getActionId(), flinkJob.getResult(), status));
     }
 
-    private void updateResult(Consumer<JobActionResult> consumer) {
+    private void updateResult(Consumer<JobActionProcess> consumer) {
         consumer.accept(flinkJob.getResult());
         fireEventListeners(new ActionUpdateEvent(flinkJob.getActionId(), flinkJob.getResult(), null));
     }

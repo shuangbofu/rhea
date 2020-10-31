@@ -2,7 +2,7 @@ package cn.shuangbofu.rhea.web.service;
 
 import cn.shuangbofu.rhea.common.DefaultThreadFactory;
 import cn.shuangbofu.rhea.common.enums.JobStatus;
-import cn.shuangbofu.rhea.job.conf.JobActionResult;
+import cn.shuangbofu.rhea.job.conf.JobActionProcess;
 import cn.shuangbofu.rhea.job.conf.params.ClusterParam;
 import cn.shuangbofu.rhea.job.conf.params.ComponentParam;
 import cn.shuangbofu.rhea.job.conf.params.Param;
@@ -18,6 +18,7 @@ import cn.shuangbofu.rhea.web.persist.dao.ComponentConfDao;
 import cn.shuangbofu.rhea.web.persist.dao.Daos;
 import cn.shuangbofu.rhea.web.persist.entity.ClusterConf;
 import cn.shuangbofu.rhea.web.persist.entity.ComponentConf;
+import cn.shuangbofu.rhea.web.vo.param.JobSubmitParam;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import org.slf4j.Logger;
@@ -123,7 +124,7 @@ public class JobExecuteService implements EventListener {
      * @param info
      * @return
      */
-    public List<Param> getParams(JobActionResult.PublishInfo info) {
+    public List<Param> getParams(JobActionProcess.PublishInfo info) {
         ClusterConf conf = clusterConfDao.findValidOneById(info.getClusterId());
         if (conf == null) {
             throw new RuntimeException("cluster not found");
@@ -140,5 +141,17 @@ public class JobExecuteService implements EventListener {
     @Override
     public void handleEvent(Event event) {
 
+    }
+
+    public void submitCheck(Long actionId, JobSubmitParam param) {
+        JobRunner runner = getRunner(actionId);
+        if (runner.isExecuting()) {
+            throw new RuntimeException("任务正在执行!");
+        }
+        if (runner.isRunning()) {
+            if (!param.getStopCurrent()) {
+                throw new RuntimeException("任务正在运行中，请先停止或选择强制重新提交!");
+            }
+        }
     }
 }
