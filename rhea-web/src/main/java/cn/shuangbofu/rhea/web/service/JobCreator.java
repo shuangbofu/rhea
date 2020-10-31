@@ -18,7 +18,10 @@ import cn.shuangbofu.rhea.web.persist.dao.JobDetailDao;
 import cn.shuangbofu.rhea.web.persist.entity.Job;
 import cn.shuangbofu.rhea.web.persist.entity.JobAction;
 import cn.shuangbofu.rhea.web.persist.entity.JobDetail;
+import com.google.common.collect.Maps;
 import org.springframework.stereotype.Component;
+
+import java.util.Map;
 
 /**
  * Created by shuangbofu on 2020/10/18 下午7:14
@@ -29,6 +32,7 @@ public class JobCreator implements EventListener {
     private final JobDao jobDao = Daos.job();
     private final JobDetailDao jobDetailDao = Daos.jobDetail();
     private final JobActionDao jobActionDao = Daos.jobAction();
+    private final Map<Long, FlinkJob> flinkJobCache = Maps.newConcurrentMap();
 
     public FlinkJob createJob(Long actionId) {
         JobAction action = jobActionDao.findOneById(actionId);
@@ -50,6 +54,10 @@ public class JobCreator implements EventListener {
                     JSON.parseObject(action.getJobActionResult(), JobActionResult.class));
         }
         return flinkJob;
+    }
+
+    public FlinkJob getFlinkJob(Long actionId) {
+        return flinkJobCache.computeIfAbsent(actionId, i -> createJob(actionId));
     }
 
     @Override

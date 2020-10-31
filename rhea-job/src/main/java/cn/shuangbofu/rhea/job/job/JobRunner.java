@@ -7,6 +7,7 @@ import cn.shuangbofu.rhea.job.conf.params.Param;
 import cn.shuangbofu.rhea.job.conf.params.ParamStore;
 import cn.shuangbofu.rhea.job.event.ActionUpdateEvent;
 import cn.shuangbofu.rhea.job.event.EventHandler;
+import cn.shuangbofu.rhea.job.event.JobEvent;
 import cn.shuangbofu.rhea.job.event.LogEvent;
 import cn.shuangbofu.rhea.job.utils.YarnUtil;
 import lombok.Getter;
@@ -52,35 +53,13 @@ public class JobRunner extends EventHandler {
 
     }
 
-    public void run() {
-        synchronized (lock) {
-            setExecuting(JobStatus.RUNNING);
-        }
-    }
-
-    public void submit() {
-        synchronized (lock) {
-            setExecuting(JobStatus.SUBMITTED);
-
-        }
-    }
-
-    public void publish() {
-        synchronized (lock) {
-            setExecuting(JobStatus.PUBLISHED);
-
-
-        }
-    }
-
     public void stop() {
-        try {
-            YarnUtil.kill(paramStore.getValue("rsAddress"), flinkJob.getResult().getApplicationId());
-        } catch (IOException | YarnException e) {
-            String msg = "kill flink app error";
-            LOGGER.error(msg, e);
-            throw new RuntimeException(msg, e);
+        boolean success = killApp(paramStore.getValue("rsAddress"), flinkJob.getResult().getApplicationId());
+        if (!success) {
+            throw new RuntimeException("stop job error");
         }
+        updateStatus(JobStatus.STOPPED);
+        fireEventListeners(new JobEvent(flinkJob.getActionId()));
     }
 
     public void kill() {
@@ -128,6 +107,83 @@ public class JobRunner extends EventHandler {
 
     public RemoteExecutor getExecutor() {
         return executor;
+    }
+
+    public ParamStore getParamStore() {
+        return paramStore;
+    }
+
+    public void execute(String command) {
+        synchronized (lock) {
+            JobStatus commandStatus = getCommandStatus(command);
+            setExecuting(commandStatus);
+            try {
+                jobExecute(command);
+            } catch (Exception e) {
+                logger.error("{}异常", command, e);
+                updateStatus(JobStatus.ERROR);
+                checkAfterError(command);
+            }
+            updateStatus(commandStatus);
+        }
+    }
+
+    private void checkAfterError(String command) {
+        if (command.equals(Command.RUN)) {
+            try {
+                String rsAddress = paramStore.getValue("rsAddress");
+                List<String> applicationIds = YarnUtil.getApplicationIds(rsAddress, flinkJob.getJobName());
+                if (applicationIds.size() > 0) {
+                    logger.error("异常后yarn上app:", applicationIds);
+                    logger.info("强制kill清除");
+                    applicationIds.forEach(applicationId -> killApp(rsAddress, applicationId));
+                }
+            } catch (YarnException | IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private boolean killApp(String rsAddress, String applicationId) {
+        try {
+            YarnUtil.kill(rsAddress, applicationId);
+            logger.info("kill {} 成功", applicationId);
+            return true;
+        } catch (IOException | YarnException e) {
+            e.printStackTrace();
+            logger.error("kill {} 失败", applicationId);
+        }
+        return false;
+    }
+
+    private JobStatus getCommandStatus(String command) {
+        switch (command) {
+            case Command.PUBLISH:
+                return JobStatus.PUBLISHED;
+            case Command.SUBMIT:
+                return JobStatus.SUBMITTED;
+            case Command.RUN:
+                return JobStatus.RUNNING;
+            default:
+                throw new RuntimeException("not supported");
+        }
+    }
+
+    private void jobExecute(String command) {
+        switch (command) {
+            case Command.PUBLISH:
+                flinkJob.publish();
+                break;
+            case Command.SUBMIT:
+                flinkJob.submit();
+                break;
+            case Command.RUN:
+                flinkJob.run();
+                fireEventListeners(new JobEvent(flinkJob.getActionId(), this));
+                break;
+            default:
+                throw new RuntimeException("not supported");
+        }
     }
 
     static class Restart {

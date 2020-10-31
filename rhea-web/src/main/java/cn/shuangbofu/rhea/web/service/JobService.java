@@ -5,6 +5,7 @@ import cn.shuangbofu.rhea.job.conf.JobActionConf;
 import cn.shuangbofu.rhea.job.conf.JobActionResult;
 import cn.shuangbofu.rhea.job.conf.JobConf;
 import cn.shuangbofu.rhea.job.conf.JobText;
+import cn.shuangbofu.rhea.job.job.JobManager;
 import cn.shuangbofu.rhea.job.utils.JSON;
 import cn.shuangbofu.rhea.web.CurrentLoginUser;
 import cn.shuangbofu.rhea.web.persist.dao.Daos;

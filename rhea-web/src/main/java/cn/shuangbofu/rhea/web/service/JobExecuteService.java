@@ -7,7 +7,9 @@ import cn.shuangbofu.rhea.job.conf.params.ComponentParam;
 import cn.shuangbofu.rhea.job.conf.params.Param;
 import cn.shuangbofu.rhea.job.event.Event;
 import cn.shuangbofu.rhea.job.event.EventListener;
+import cn.shuangbofu.rhea.job.job.Command;
 import cn.shuangbofu.rhea.job.job.FlinkJob;
+import cn.shuangbofu.rhea.job.job.JobManager;
 import cn.shuangbofu.rhea.job.job.JobRunner;
 import cn.shuangbofu.rhea.job.utils.JSON;
 import cn.shuangbofu.rhea.web.persist.dao.ClusterConfDao;
@@ -45,16 +47,14 @@ public class JobExecuteService implements EventListener {
     private final ComponentConfDao componentConfDao = Daos.componentConf();
 
     @Autowired
-    private JobManager jobManager;
-
-    @Autowired
     private JobCreator jobCreator;
 
     @Autowired
     private LogService logService;
 
     public boolean executeCommand(Long actionId, String command) {
-        JobRunner runner = getRunner(actionId).setupLogger(command);
+        JobRunner runner = getRunner(actionId)
+                .setupLogger(command);
         runner.setParams(getParams(runner.getFlinkJob().getResult().getPublishInfo()));
         if (Command.STOP.equals(command)) {
             if (!runner.isRunning()) {
@@ -69,13 +69,14 @@ public class JobExecuteService implements EventListener {
                     }
                     runner.kill();
                 } else {
-                    if (Command.PUBLISH.equals(command)) {
-                        runner.publish();
-                    } else if (Command.RUN.equals(command)) {
-                        runner.run();
-                    } else if (Command.SUBMIT.equals(command)) {
-                        runner.submit();
-                    }
+//                    if (Command.PUBLISH.equals(command)) {
+//                        runner.publish();
+//                    } else if (Command.RUN.equals(command)) {
+//                        runner.run();
+//                    } else if (Command.SUBMIT.equals(command)) {
+//                        runner.submit();
+//                    }
+                    runner.execute(command);
                 }
                 runner.closeLogger();
             });
@@ -84,10 +85,10 @@ public class JobExecuteService implements EventListener {
     }
 
     public JobRunner createRunner(Long actionId) {
-        FlinkJob flinkJob = jobManager.getFlinkJob(actionId);
+        FlinkJob flinkJob = jobCreator.getFlinkJob(actionId);
         List<Param> params = getParams(flinkJob.getResult().getPublishInfo());
         JobRunner jobRunner = new JobRunner(flinkJob, params);
-        jobRunner.addListener(jobManager);
+        jobRunner.addListener(JobManager.INSTANCE);
         jobRunner.addListener(jobCreator);
         jobRunner.addListener(logService);
         jobRunner.addListener(this);
@@ -115,13 +116,5 @@ public class JobExecuteService implements EventListener {
     @Override
     public void handleEvent(Event event) {
 
-    }
-
-    public interface Command {
-        String SUBMIT = "SUBMIT";
-        String STOP = "STOP";
-        String RUN = "RUN";
-        String PUBLISH = "PUBLISH";
-        String KILL = "KILL";
     }
 }

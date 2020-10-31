@@ -14,15 +14,15 @@ import lombok.Getter;
 @Getter
 public abstract class FlinkJob {
 
+    protected final String jobName;
+    protected final Long actionId;
+    protected final JobText text;
+    protected final JobConf conf;
+    protected final JobActionResult result;
     private final Long jobId;
-    private final String jobName;
-    private final Long actionId;
-    private final JobText text;
-    private final JobConf conf;
     private final Object lock = new Object();
-    private final JobActionResult result;
-    private JobStatus jobStatus;
-    private JobRunner runner;
+    protected JobStatus jobStatus;
+    protected JobRunner runner;
 
     public FlinkJob(Long jobId, String jobName, Long actionId, JobStatus jobStatus, JobText text, JobConf conf, JobActionResult result) {
         this.jobId = jobId;
@@ -56,5 +56,21 @@ public abstract class FlinkJob {
         synchronized (lock) {
             return jobStatus;
         }
+    }
+
+    public void publish() {
+
+    }
+
+    public void submit() {
+
+    }
+
+    public void run() {
+
+    }
+
+    protected String getRootPath() {
+        return "/home/" + runner.getParamStore().getValue("username") + "/flinkJob";
     }
 }

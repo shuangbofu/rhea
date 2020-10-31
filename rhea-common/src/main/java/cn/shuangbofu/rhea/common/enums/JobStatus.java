@@ -10,7 +10,7 @@ public enum JobStatus {
     /**
      * 任务状态enum
      */
-    FAILED,
+    ERROR,
 
     STOPPED,
 

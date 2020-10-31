@@ -1,8 +1,8 @@
 package cn.shuangbofu.rhea.job.job;
 
 import cn.shuangbofu.rhea.job.JobLogger;
-import cn.shuangbofu.rhea.job.conf.params.ClusterParam;
 import cn.shuangbofu.rhea.job.conf.params.ParamStore;
+import cn.shuangbofu.rhea.job.job.shell.CmdProcess;
 import cn.shuangbofu.rhea.job.job.shell.IProcess;
 import cn.shuangbofu.rhea.job.job.shell.SshHelp;
 import cn.shuangbofu.rhea.job.job.shell.SshProcess;
@@ -26,11 +26,11 @@ public class RemoteExecutor {
 
     public RemoteExecutor(ParamStore store, JobLogger logger) {
         this.logger = logger;
-        List<String> workers = store.getListFromString(ClusterParam.WORKERS, ",");
-        String masterHost = store.getValue(ClusterParam.HOST);
-        int port = store.getIntValue(ClusterParam.PORT);
-        String username = store.getValue(ClusterParam.USERNAME);
-        String privateKeyPath = store.getValue(ClusterParam.PRIVATE_KEY_PATH);
+        List<String> workers = store.getListFromString("workers", ",");
+        String masterHost = store.getValue("host");
+        int port = store.getIntValue("port");
+        String username = store.getValue("username");
+        String privateKeyPath = store.getValue("privateKeyPath");
 
         workers.forEach(worker -> workerSshHelps.add(new SshHelp(username, worker, port, privateKeyPath, logger)));
         masterSshHelp = new SshHelp(username, masterHost, port, privateKeyPath, logger);
@@ -50,11 +50,12 @@ public class RemoteExecutor {
         }
     }
 
-    public void createFile2Remote(String content, String name, String remotePath, boolean all) {
+    public void createFile2Remote(String content, String remotePath, boolean all) {
         try {
-            String localPath = "/tmp/" + name;
+            String localPath = "/tmp/" + System.currentTimeMillis();
             FileUtils.writeStringToFile(new File(localPath), content, "UTF-8");
             scp(localPath, remotePath, all);
+            new CmdProcess(Lists.newArrayList("rm " + localPath), logger).execute();
         } catch (IOException e) {
             throw new RuntimeException("write file error");
         }

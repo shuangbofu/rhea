@@ -22,7 +22,6 @@ public class DatasourceConfig {
 
     @Bean
     public Anima anima() {
-        Anima anima = Anima.open(jdbcUrl, username, password);
-        return anima;
+        return Anima.open(jdbcUrl, username, password);
     }
 }
