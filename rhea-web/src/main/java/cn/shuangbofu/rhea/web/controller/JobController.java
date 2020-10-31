@@ -10,7 +10,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * Created by shuangbofu on 2020/10/18 上午10:57
@@ -110,7 +109,7 @@ public class JobController {
     }
 
     @GetMapping("/logs")
-    public Result<Map<String, LogData>> getHistoryLogs(Long actionId) {
+    public Result<List<LogData>> getHistoryLogs(Long actionId) {
         return Result.success(jobService.getHistoryLogs(actionId));
     }
 

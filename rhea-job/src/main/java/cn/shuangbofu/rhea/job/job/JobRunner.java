@@ -75,7 +75,7 @@ public class JobRunner extends EventHandler {
     }
 
     public void kill() {
-        logger.info("取消当前执行！");
+        logger.info("取消当前执行!");
         executor.cancel();
     }
 
@@ -161,7 +161,7 @@ public class JobRunner extends EventHandler {
                 // 异常之后处理
                 checkAfterError(command);
             } finally {
-                logger.info("执行结束！");
+                logger.info("执行结束!");
             }
         }
     }
@@ -222,9 +222,8 @@ public class JobRunner extends EventHandler {
                 if (applicationIds.size() > 0) {
                     updateResult(result -> result.setApplicationId(applicationIds.get(0)));
                 } else {
-                    throw new RuntimeException("启动失败！");
+                    throw new RuntimeException("启动失败!");
                 }
-
                 fireEventListeners(new JobEvent(flinkJob.getActionId(), this));
                 break;
             default:

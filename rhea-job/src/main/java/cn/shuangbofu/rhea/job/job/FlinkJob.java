@@ -57,21 +57,20 @@ public abstract class FlinkJob {
     }
 
     public void publish() {
-        runner.getExecutor().local("sh /tmp/schedule_sleep.sh");
-
         runner.logger().info("创建checkpoint文件夹");
-        String hdfsAddress = runner.getParamStore().getValue("hdfsAddress");
-        String cmd = String.format("hdfs dfs -mkdir -p %s/%s/checkpoint", hdfsAddress + "/flink", jobName);
-        runner.getExecutor().ssh(cmd, false);
+//        String hdfsAddress = runner.getParamStore().getValue("hdfsAddress");
+//        String cmd = String.format("hdfs dfs -mkdir -p %s/%s/checkpoint", hdfsAddress + "/flink", jobName);
+//        runner.getExecutor().ssh(cmd, false);
+        runner.logger().info("成功!");
 
     }
 
     public void submit() {
-
+        runner.logger().info("成功!");
     }
 
     public void run() {
-
+        runner.logger().info("成功!");
     }
 
     protected String getRootPath() {

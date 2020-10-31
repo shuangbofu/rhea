@@ -65,14 +65,30 @@ public class JobExecuteService implements EventListener {
             runner.closeLogger();
         } else if (Command.KILL.equals(command)) {
             if (!runner.isExecuting()) {
-                throw new RuntimeException("没有在执行！");
+                throw new RuntimeException("没有在执行!");
             }
             runner.kill();
         } else {
-            executorService.execute(() -> {
-                if (Command.SUBMIT.equals(command) && !runner.getFlinkJob().getJobStatus().equals(JobStatus.PUBLISHED)) {
-                    throw new RuntimeException("没有发布，不能提交！");
+            if (runner.isExecuting()) {
+                throw new RuntimeException("正在执行其他操作,请稍后再操作!");
+            }
+            JobStatus jobStatus = runner.getFlinkJob().getJobStatus();
+            JobStatus executeStatus = runner.getFlinkJob().getResult().getExecuteStatus();
+            boolean isError = JobStatus.ERROR.equals(jobStatus);
+            if (Command.SUBMIT.equals(command)) {
+                if (!JobStatus.PUBLISHED.equals(jobStatus) &&
+                        (!JobStatus.SUBMITTED.equals(executeStatus) && isError)) {
+                    throw new RuntimeException("未发布不能提交!");
                 }
+            } else if (Command.RUN.equals(command)) {
+                if (!JobStatus.SUBMITTED.equals(jobStatus) &&
+                        (!JobStatus.RUNNING.equals(executeStatus) && isError) &&
+                        JobStatus.STOPPED.equals(jobStatus)
+                ) {
+                    throw new RuntimeException("未提交不能运行!");
+                }
+            }
+            executorService.execute(() -> {
                 try {
                     runner.setupLogger(command).execute(command);
                 } catch (Exception e) {

@@ -6,6 +6,7 @@ import lombok.Data;
 @Data
 @AllArgsConstructor
 public class LogData {
+    private String key;
     private int offset;
     private int length;
     private String value;

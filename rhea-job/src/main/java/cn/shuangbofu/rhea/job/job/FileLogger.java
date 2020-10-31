@@ -46,71 +46,7 @@ public class FileLogger implements JobLogger {
         info("log init success");
     }
 
-
-    private String format(String s, Object... args) {
-        if (args != null && args.length > 0) {
-            return String.format(s.replace("{}", "%s"), args);
-        }
-        return s;
-    }
-
-    @Override
-    public void info(String s, Throwable t, Object... args) {
-        logger.info(format(s, args), t);
-    }
-
-    @Override
-    public String getKey() {
-        return name;
-    }
-
-    @Override
-    public void info(String s, Object... args) {
-        logger.info(format(s, args));
-    }
-
-    @Override
-    public void error(String s, Throwable t, Object... args) {
-        logger.error(format(s, args), t);
-    }
-
-    @Override
-    public void error(String s, Object... args) {
-        logger.error(format(s, args));
-    }
-//
-//    public void warn(String s, Throwable t, Object... args) {
-//        logger.warn(format(s, args), t);
-//    }
-//
-//    public void warn(String s, Object... args) {
-//        logger.warn(format(s, args));
-//    }
-
-    @Override
-    public LogData getLog(int offset, int length) {
-        if (logFile != null) {
-            File file = new File(logFile.getParent(), logFile.getName());
-            try {
-                return FileUtil.readUtf8File(file, offset, length);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        throw new RuntimeException("log not exist");
-    }
-
-    @Override
-    public List<FileUtil.LogResult> close() {
-        info("close log {}{}.log", DIR, name);
-        logger.removeAllAppenders();
-        fileAppender.close();
-        consoleAppender.close();
-        logger = null;
-        return getRes(logFile);
-    }
-
-    public List<FileUtil.LogResult> getRes(File... files) {
+    public static List<FileUtil.LogResult> getRes(File... files) {
         List<FileUtil.LogResult> logResults = Lists.newArrayList();
         byte[] buffer = new byte[50 * 1024];
         int pos = 0;
@@ -126,7 +62,7 @@ public class FileLogger implements JobLogger {
                     int size = bufferedStream.read(buffer, pos, length);
                     while (size >= 0) {
                         if (pos + size == buffer.length) {
-                            logResults.add(new FileUtil.LogResult(buffer, startByte, startByte + buffer.length));
+                            logResults.add(new FileUtil.LogResult(Arrays.copyOf(buffer, buffer.length), startByte, startByte + buffer.length));
                             pos = 0;
                             length = buffer.length;
                             startByte += buffer.length;
@@ -149,6 +85,69 @@ public class FileLogger implements JobLogger {
         } catch (IOException e) {
         }
         return logResults;
+    }
+
+    private String format(String s, Object... args) {
+        if (args != null && args.length > 0) {
+            return String.format(s.replace("{}", "%s"), args);
+        }
+        return s;
+    }
+
+    @Override
+    public void info(String s, Throwable t, Object... args) {
+        logger.info(format(s, args), t);
+    }
+
+    @Override
+    public String getKey() {
+        return name;
+    }
+
+    @Override
+    public void info(String s, Object... args) {
+        logger.info(format(s, args));
+    }
+//
+//    public void warn(String s, Throwable t, Object... args) {
+//        logger.warn(format(s, args), t);
+//    }
+//
+//    public void warn(String s, Object... args) {
+//        logger.warn(format(s, args));
+//    }
+
+    @Override
+    public void error(String s, Throwable t, Object... args) {
+        logger.error(format(s, args), t);
+    }
+
+    @Override
+    public void error(String s, Object... args) {
+        logger.error(format(s, args));
+    }
+
+    @Override
+    public LogData getLog(int offset, int length) {
+        if (logFile != null) {
+            File file = new File(logFile.getParent(), logFile.getName());
+            try {
+                return FileUtil.readUtf8File(file, offset, length);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        throw new RuntimeException("log not exist");
+    }
+
+    @Override
+    public List<FileUtil.LogResult> close() {
+        info("close log {}{}.log", DIR, name);
+        logger.removeAllAppenders();
+        fileAppender.close();
+        consoleAppender.close();
+        logger = null;
+        return getRes(logFile);
     }
 
 

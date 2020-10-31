@@ -16,6 +16,6 @@ public class FlinkJarJob extends FlinkJob {
     @Override
     public void publish() {
         super.publish();
-        
+
     }
 }

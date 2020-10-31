@@ -19,7 +19,7 @@ public class FlinkSqlJob extends FlinkJob {
     @Override
     public void publish() {
         super.publish();
-        runner.getExecutor().createFile2Remote(getSql(), getPath(false).first, false);
+//        runner.getExecutor().createFile2Remote(getSql(), getPath(false).first, false);
 //        runner.getExecutor().createFile2Remote("sh ");
     }
 

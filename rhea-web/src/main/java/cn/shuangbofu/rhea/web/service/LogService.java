@@ -13,7 +13,6 @@ import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -62,7 +61,7 @@ public class LogService implements EventListener {
     }
 
     public LogData getHistoryLog(String key) {
-        return modelListData2Log(jobLogDao.getJobLogByKey(key));
+        return modelListData2Log(key, jobLogDao.getJobLogByKey(key));
     }
 
     public LogData getJobLog(String key, Integer offset, Integer length) {
@@ -70,21 +69,21 @@ public class LogService implements EventListener {
         return jobLogger.getLog(offset, length);
     }
 
-    public Map<String, LogData> getHistoryLogs(List<String> keys) {
-        Map<String, List<JobLog>> jobLogsInKeys = jobLogDao.getJobLogsInKeys(keys);
-        return jobLogsInKeys.keySet().stream()
-                .collect(Collectors.toMap(i -> i, i -> modelListData2Log(jobLogsInKeys.get(i)), (i, j) -> j, LinkedHashMap::new));
+    public List<LogData> getHistoryLogs(List<String> keys) {
+        Map<String, List<JobLog>> jobLogsMap = jobLogDao.getJobLogsInKeys(keys);
+        return jobLogsMap.keySet().stream().map(i -> modelListData2Log(i, jobLogsMap.get(i))).collect(Collectors.toList());
     }
 
-    private LogData modelListData2Log(List<JobLog> jobLogs) {
+    private LogData modelListData2Log(String key, List<JobLog> jobLogs) {
         if (jobLogs == null || jobLogs.size() == 0) {
-            return new LogData(0, 0, "");
+            return null;
         }
         jobLogs.sort(Comparator.comparingInt(JobLog::getStartByte));
         List<byte[]> byteList = jobLogs.stream().map(JobLog::getLog).collect(Collectors.toList());
         byte[] bytes = combineArrays(byteList);
         String s = new String(bytes, StandardCharsets.UTF_8);
-        return new LogData(0, s.length(), s, jobLogs.stream().map(JobLog::getGmtCreate)
+        return new LogData(key,
+                0, s.length(), s, jobLogs.stream().map(JobLog::getGmtCreate)
                 .max(Comparator.comparingInt(Long::intValue)).orElse(0L));
     }
 }

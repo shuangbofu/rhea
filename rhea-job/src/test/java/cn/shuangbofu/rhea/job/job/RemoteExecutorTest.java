@@ -35,13 +35,11 @@ public class RemoteExecutorTest {
         );
         RemoteExecutor remoteExecutor = new RemoteExecutor(paramStore, new FileLogger("john", "test_rhea", false));
         String shellPath = "/tmp/schedule_sleep.sh";
-//        remoteExecutor.createFile2Remote(scheduledShell(120), shellPath, false);
+        remoteExecutor.createFile2Remote(scheduledShell(120), shellPath, false);
 //        remoteExecutor.ssh("ls -Slh", false);
-
         new Thread(() -> {
             try {
                 Thread.sleep(2000);
-                System.out.println("cancellll");
                 remoteExecutor.cancel();
             } catch (InterruptedException e) {
                 e.printStackTrace();

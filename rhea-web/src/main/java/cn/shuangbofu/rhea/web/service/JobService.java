@@ -20,11 +20,12 @@ import cn.shuangbofu.rhea.web.vo.form.JobForm;
 import cn.shuangbofu.rhea.web.vo.param.JobPublishParam;
 import cn.shuangbofu.rhea.web.vo.param.JobSubmitParam;
 import io.github.biezhi.anima.page.Page;
+import org.assertj.core.util.Lists;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -115,10 +116,12 @@ public class JobService {
         ActionQueryParam filter = pageQueryParam.getFilter();
         List<Long> jobIds = jobDao.getIdsByFilter(filter.getCreateUser(), filter.getJobType(), filter.getJobName());
         Page<JobAction> page = jobActionDao.getAllPageByFilter(pageNum, pageSize, jobIds, filter.getJobStatus(), filter.getClusterId(), filter.getModifyUser());
-        List<JobActionVO> actions = page.getRows().stream().map(i -> {
-            Job job = jobDao.findOneById(i.getJobId());
-            return action2VO(job, i);
-        }).collect(Collectors.toList());
+        List<JobActionVO> actions = Optional.ofNullable(page.getRows())
+                .orElse(Lists.newArrayList())
+                .stream().map(i -> {
+                    Job job = jobDao.findOneById(i.getJobId());
+                    return action2VO(job, i);
+                }).collect(Collectors.toList());
 
         return PageVO.newInstance(pageNum, pageSize, page.getTotalRows(), actions);
     }
@@ -171,10 +174,12 @@ public class JobService {
         JobAction action = jobActionDao.findOneById(param.getActionId());
         Long jobId = action.getJobId();
         JobAction current = jobActionDao.findCurrent(jobId);
-        if (param.getStopCurrent()) {
-            jobExecuteService.executeCommand(current.getId(), Command.STOP);
+        if (current != null) {
+            if (param.getStopCurrent()) {
+                jobExecuteService.executeCommand(current.getId(), Command.STOP);
+            }
+            jobActionDao.changeCurrent(action.getId(), current.getId());
         }
-        jobActionDao.changeCurrent(action.getId(), current.getId());
         // TODO 检查集群组件配置是否异常，异常提示重新设置执行环境配置。（修改过程也需要记录到日志）
         // TODO 检查当前是否可以执行，如运行中需要强制停止
         // TODO 提交，复制发布目录配置文件到执行目录
@@ -200,7 +205,7 @@ public class JobService {
         return jobActionDao.getActionResult(actionId);
     }
 
-    public Map<String, LogData> getHistoryLogs(Long actionId) {
+    public List<LogData> getHistoryLogs(Long actionId) {
         List<String> logKeys = getActionResult(actionId).getRecords().stream()
                 .filter(JobActionResult.Record::isEnd)
                 .map(JobActionResult.Record::getLogKey)

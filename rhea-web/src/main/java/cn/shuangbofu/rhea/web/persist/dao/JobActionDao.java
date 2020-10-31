@@ -39,8 +39,7 @@ public class JobActionDao extends BaseDao<JobAction> {
             if (StringUtils.isNotEmpty(modifyUser)) {
                 q.where(JobAction::getModifyUser, modifyUser);
             }
-            q.in(JobAction::getJobId, jobIds);
-            return q;
+            return q.in(JobAction::getJobId, jobIds);
         });
     }
 
@@ -56,8 +55,7 @@ public class JobActionDao extends BaseDao<JobAction> {
             if (status != null) {
                 q.set(JobAction::getJobStatus, status);
             }
-            q.where(JobAction::getId, actionId);
-            return q;
+            return q.where(JobAction::getId, actionId);
         });
     }
 
