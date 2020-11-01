@@ -2,6 +2,7 @@ package cn.shuangbofu.rhea.web.service;
 
 import cn.shuangbofu.rhea.common.enums.JobStatus;
 import cn.shuangbofu.rhea.common.enums.JobType;
+import cn.shuangbofu.rhea.job.alarm.AlarmConfig;
 import cn.shuangbofu.rhea.job.conf.JobActionProcess;
 import cn.shuangbofu.rhea.job.conf.JobConf;
 import cn.shuangbofu.rhea.job.conf.JobText;
@@ -42,17 +43,20 @@ public class JobCreator implements EventListener {
         JobDetail jobDetail = jobDetailDao.getJobIdAndVersion(jobId, version);
         Job job = jobDao.findOneById(jobId);
         JobType jobType = job.getJobType();
+        JobText jobText = JSON.parseObject(jobDetail.getText(), JobText.class);
+        JobConf jobConf = JSON.parseObject(jobDetail.getConf(), JobConf.class);
+        JobActionProcess jobActionProcess = JSON.parseObject(action.getJobActionProcess(), JobActionProcess.class);
+        AlarmConfig alarmConfig = JSON.parseObject(job.getAlarmConfig(), AlarmConfig.class);
+
         FlinkJob flinkJob;
         if (jobType.equals(JobType.FLINK_SQL)) {
             flinkJob = new FlinkSqlJob(jobId, job.getJobName(), actionId, action.getJobStatus(),
-                    JSON.parseObject(jobDetail.getText(), JobText.class),
-                    JSON.parseObject(jobDetail.getConf(), JobConf.class),
-                    JSON.parseObject(action.getJobActionProcess(), JobActionProcess.class));
+                    jobText, jobConf, jobActionProcess, action.getCurrent(), alarmConfig
+            );
         } else {
             flinkJob = new FlinkJarJob(jobId, job.getJobName(), actionId, action.getJobStatus(),
-                    JSON.parseObject(jobDetail.getText(), JobText.class),
-                    JSON.parseObject(jobDetail.getConf(), JobConf.class),
-                    JSON.parseObject(action.getJobActionProcess(), JobActionProcess.class));
+                    jobText, jobConf, jobActionProcess, action.getCurrent(), alarmConfig
+            );
         }
         return flinkJob;
     }

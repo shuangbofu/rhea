@@ -25,4 +25,6 @@ public interface JobLogger {
     LogData getLog(int offset, int length);
 
     List<FileUtil.LogResult> close();
+
+    boolean closed();
 }

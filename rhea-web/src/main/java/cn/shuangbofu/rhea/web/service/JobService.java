@@ -5,7 +5,7 @@ import cn.shuangbofu.rhea.common.enums.JobStatus;
 import cn.shuangbofu.rhea.job.conf.JobActionProcess;
 import cn.shuangbofu.rhea.job.conf.JobConf;
 import cn.shuangbofu.rhea.job.conf.JobText;
-import cn.shuangbofu.rhea.job.job.Command;
+import cn.shuangbofu.rhea.job.job.Execution;
 import cn.shuangbofu.rhea.job.utils.JSON;
 import cn.shuangbofu.rhea.web.CurrentLoginUser;
 import cn.shuangbofu.rhea.web.persist.dao.Daos;
@@ -167,7 +167,7 @@ public class JobService {
                 .setModifyUser(CurrentLoginUser.getUser());
         jobActionDao.updateModel(action);
         // TODO 部署到集群上，生成记录，记录部署日志
-        return jobExecuteService.executeCommand(actionId, Command.PUBLISH);
+        return jobExecuteService.submitExecution(actionId, Execution.PUBLISH);
     }
 
     public boolean submitJob(JobSubmitParam param) {
@@ -178,25 +178,22 @@ public class JobService {
             jobExecuteService.submitCheck(current.getId(), param);
             jobActionDao.changeCurrent(action.getId(), current.getId());
         }
-        // TODO 检查集群组件配置是否异常，异常提示重新设置执行环境配置。（修改过程也需要记录到日志）
-        // TODO 检查当前是否可以执行，如运行中需要强制停止
-        // TODO 提交，复制发布目录配置文件到执行目录
-        return jobExecuteService.executeCommand(action.getId(), Command.SUBMIT);
+        return jobExecuteService.submitExecution(action.getId(), Execution.SUBMIT);
     }
 
     public boolean runJob(Long actionId) {
         // 执行启动任务
-        return jobExecuteService.executeCommand(actionId, Command.RUN);
+        return jobExecuteService.submitExecution(actionId, Execution.RUN);
     }
 
     public boolean stopJob(Long actionId) {
         // 停止运行中的任务
-        return jobExecuteService.executeCommand(actionId, Command.STOP);
+        return jobExecuteService.submitExecution(actionId, Execution.STOP);
     }
 
     public boolean killJob(Long actionId) {
         // 停止启动中的任务
-        return jobExecuteService.executeCommand(actionId, Command.KILL);
+        return jobExecuteService.submitExecution(actionId, Execution.KILL);
     }
 
     private JobActionProcess getActionResult(Long actionId) {
@@ -204,7 +201,8 @@ public class JobService {
     }
 
     public List<LogData> getHistoryLogs(Long actionId, Integer limit) {
-        List<String> logKeys = getActionResult(actionId).getRecords().stream()
+        List<String> logKeys = getActionResult(actionId).getRecords()
+                .stream().sorted((o1, o2) -> new Long(o2.getStart() - o1.getStart()).intValue())
                 .filter(JobActionProcess.Record::isEnd)
                 .map(JobActionProcess.Record::getLogKey)
                 .limit(limit)

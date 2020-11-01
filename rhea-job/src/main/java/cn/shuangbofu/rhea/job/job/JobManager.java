@@ -4,13 +4,14 @@ import cn.shuangbofu.rhea.job.JobLogger;
 import cn.shuangbofu.rhea.job.event.Event;
 import cn.shuangbofu.rhea.job.event.EventListener;
 import cn.shuangbofu.rhea.job.event.JobEvent;
+import cn.shuangbofu.rhea.job.event.RestartEvent;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
+import java.security.SecureRandom;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -57,11 +58,10 @@ public enum JobManager implements EventListener {
         if (event instanceof JobEvent) {
             JobEvent jobEvent = (JobEvent) event;
             Long actionId = jobEvent.getActionId();
-            JobRunner runner = jobEvent.getRunner();
-            if (runner == null) {
-                runningJobs.remove(actionId);
+            if (jobEvent.running()) {
+                runningJobs.put(actionId, jobEvent.getRunner());
             } else {
-                runningJobs.put(actionId, runner);
+                runningJobs.remove(actionId);
             }
         }
     }
@@ -85,13 +85,21 @@ public enum JobManager implements EventListener {
             while (!shutdown) {
                 synchronized (this) {
                     try {
-                        HashMap<Long, JobRunner> checks = Maps.newHashMap(runningJobs);
+                        Map<Long, JobRunner> checks = Maps.newConcurrentMap();
+                        checks.putAll(runningJobs);
                         checks.keySet().forEach(actionId -> {
                             JobLogger logger = getLogger(actionId);
-                            logger.info("检查任务执行状态");
+                            JobRunner jobRunner = checks.get(actionId);
+                            // TODO 检查任务状态
+                            boolean mock = mock(actionId);
+                            logger.info("检查任务执行状态:{}", mock ? "RUNNING" : "ERROR");
+                            if (!mock) {
+                                runningJobs.remove(actionId);
+                                jobRunner.fireEventListeners(new RestartEvent(actionId));
+                            }
                         });
-                        Thread.sleep(10000);
-                    } catch (InterruptedException e) {
+                        Thread.sleep(4000);
+                    } catch (Exception e) {
                         e.printStackTrace();
                     }
                 }
@@ -100,6 +108,10 @@ public enum JobManager implements EventListener {
 
         public void shutdown() {
             shutdown = true;
+        }
+
+        private boolean mock(Long actionId) {
+            return new SecureRandom().nextInt(10) > 9;
         }
     }
 }

@@ -3,7 +3,7 @@ package cn.shuangbofu.rhea.web.service;
 import cn.shuangbofu.rhea.common.enums.JobStatus;
 import cn.shuangbofu.rhea.common.utils.FileUtil;
 import cn.shuangbofu.rhea.job.conf.JobActionProcess;
-import cn.shuangbofu.rhea.job.job.Command;
+import cn.shuangbofu.rhea.job.job.Execution;
 import cn.shuangbofu.rhea.job.job.FileLogger;
 import cn.shuangbofu.rhea.job.job.JobManager;
 import cn.shuangbofu.rhea.job.job.JobRunner;
@@ -14,6 +14,8 @@ import cn.shuangbofu.rhea.web.persist.dao.JobDao;
 import cn.shuangbofu.rhea.web.persist.dao.JobLogDao;
 import cn.shuangbofu.rhea.web.persist.entity.Job;
 import cn.shuangbofu.rhea.web.persist.entity.JobAction;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 
@@ -28,6 +30,8 @@ import java.util.stream.Collectors;
  */
 @Configuration
 public class RheaInitializer {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(RheaInitializer.class);
 
     private final JobActionDao jobActionDao = Daos.jobAction();
     private final JobDao jobDao = Daos.job();
@@ -88,8 +92,10 @@ public class RheaInitializer {
                     // 如果是正在执行因为程序异常退出而导致的异常则置为执行中
                     JobStatus newStatus = action.getCurrent() ? JobStatus.EXECUTING : null;
                     jobActionDao.updateResultStatus(action.getId(), process, newStatus);
-                    File file = new File("./logs/" + job.getJobName() + "/" + key + ".log");
+                    String filePath = "./logs/" + job.getJobName() + "/" + key + ".log";
+                    File file = new File(filePath);
                     if (file.exists()) {
+                        LOGGER.info("恢复日志 {}", filePath);
                         List<FileUtil.LogResult> logs = FileLogger.getLogsFromFile(file);
                         logService.saveLogs(key, logs);
                     }
@@ -102,12 +108,14 @@ public class RheaInitializer {
         List<JobAction> actions = jobActionDao.getActionsByStatus(JobStatus.EXECUTING);
         actions.forEach(action -> {
             // 置为失败
+            LOGGER.info("{}设置为失败", action.getId());
             jobActionDao.updateResultStatus(action.getId(), null, JobStatus.ERROR);
             JobActionProcess actionProcess = JSON.parseObject(action.getJobActionProcess(), JobActionProcess.class);
-            String execution = actionProcess.getExecution();
-            if (actionProcess.getExecution().equals(Command.PUBLISH) || action.getCurrent()) {
+            Execution execution = actionProcess.getExecution();
+            if (actionProcess.getExecution().equals(Execution.PUBLISH) || action.getCurrent()) {
                 // 重新执行
-                jobExecuteService.executeCommand(action.getId(), execution);
+                LOGGER.info("{}重新{}", action.getId(), execution);
+                jobExecuteService.submitExecution(action.getId(), execution);
             }
         });
     }

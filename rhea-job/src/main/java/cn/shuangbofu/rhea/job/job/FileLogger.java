@@ -150,5 +150,10 @@ public class FileLogger implements JobLogger {
         return getLogsFromFile(logFile);
     }
 
+    @Override
+    public boolean closed() {
+        return logger == null;
+    }
+
 
 }

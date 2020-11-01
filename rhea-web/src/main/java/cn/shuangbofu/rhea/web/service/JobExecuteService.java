@@ -8,7 +8,8 @@ import cn.shuangbofu.rhea.job.conf.params.ComponentParam;
 import cn.shuangbofu.rhea.job.conf.params.Param;
 import cn.shuangbofu.rhea.job.event.Event;
 import cn.shuangbofu.rhea.job.event.EventListener;
-import cn.shuangbofu.rhea.job.job.Command;
+import cn.shuangbofu.rhea.job.event.RestartEvent;
+import cn.shuangbofu.rhea.job.job.Execution;
 import cn.shuangbofu.rhea.job.job.FlinkJob;
 import cn.shuangbofu.rhea.job.job.JobManager;
 import cn.shuangbofu.rhea.job.job.JobRunner;
@@ -43,7 +44,7 @@ public class JobExecuteService implements EventListener {
     private static final Logger LOGGER = LoggerFactory.getLogger(JobExecuteService.class);
     private final ExecutorService executorService = new ThreadPoolExecutor(10, 50,
             60, TimeUnit.SECONDS, new LinkedBlockingDeque<>(),
-            new DefaultThreadFactory("execute-manager"));
+            new DefaultThreadFactory("execution-pool"));
     private final Map<Long, JobRunner> runnerCache = Maps.newConcurrentMap();
 
     private final ClusterConfDao clusterConfDao = Daos.clusterConf();
@@ -55,53 +56,86 @@ public class JobExecuteService implements EventListener {
     @Autowired
     private LogService logService;
 
-    public boolean executeCommand(Long actionId, String command) {
+    @Autowired
+    private AlarmService alarmService;
+
+    public boolean submitExecution(Long actionId, Execution execution) {
         JobRunner runner = getRunner(actionId);
+        beforeExecute(runner, execution);
         runner.setParams(getParams(runner.getFlinkJob().getResult().getPublishInfo()));
-        if (Command.STOP.equals(command)) {
-            if (!runner.isRunning()) {
-                throw new RuntimeException("没有在运行中!");
-            }
+        if (Execution.STOP.equals(execution)) {
             runner.stop();
             // 停止后关闭日志
             runner.closeLogger();
-        } else if (Command.KILL.equals(command)) {
+        } else if (Execution.KILL.equals(execution)) {
+            runner.kill();
+        } else {
+            executorService.execute(() -> {
+                try {
+                    runner.setup(execution)
+                            .execute(execution);
+                } catch (Exception e) {
+                    if (execution.isRestart()) {
+                        if (runner.getRestart().get()) {
+                            submitExecution(actionId, execution);
+                        } else {
+                            runner.logger().error("停止重启!");
+                            runner.closeLogger();
+                        }
+                    } else {
+                        runner.logger().error(e.getMessage(), e);
+                    }
+                } finally {
+                    if (!execution.isRestart() ||
+                            (execution.isRestart() && runner.isRunning())) {
+                        runner.closeLogger();
+                    }
+                }
+            });
+        }
+        return true;
+    }
+
+    public void beforeExecute(JobRunner runner, Execution execution) {
+        // 设置参数
+        runner.setParams(getParams(runner.getFlinkJob().getResult().getPublishInfo()));
+        // 检查状态
+        if (Execution.STOP.equals(execution)) {
+            if (!runner.isRunning()) {
+                throw new RuntimeException("没有在运行中!");
+            }
+        } else if (Execution.KILL.equals(execution)) {
             if (!runner.isExecuting()) {
                 throw new RuntimeException("没有在执行!");
             }
-            runner.kill();
         } else {
+            if (Execution.RESTART.equals(execution)) {
+                return;
+            }
             if (runner.isExecuting()) {
-                throw new RuntimeException("正在执行其他操作,请稍后再操作!");
+                throw new RuntimeException("正在执行" + runner.getFlinkJob().getResult().getExecution() + "操作,请稍后再操作!");
             }
             JobStatus jobStatus = runner.getFlinkJob().getJobStatus();
-            boolean lastExecutionError = command.equals(runner.getFlinkJob().getResult().getExecution()) && JobStatus.ERROR.equals(jobStatus);
-            if (Command.SUBMIT.equals(command)) {
+            boolean lastExecutionError = execution.equals(runner.getFlinkJob().getResult().getExecution()) && JobStatus.ERROR.equals(jobStatus);
+            if (Execution.SUBMIT.equals(execution)) {
                 if (!JobStatus.PUBLISHED.equals(jobStatus) &&
                         !lastExecutionError
                 ) {
                     throw new RuntimeException("未发布不能提交!");
                 }
-            } else if (Command.RUN.equals(command)) {
+            } else if (Execution.RUN.equals(execution)) {
+                if (!runner.getFlinkJob().isCurrent()) {
+                    throw new RuntimeException("已有任务在运行中!");
+                }
                 if (!JobStatus.SUBMITTED.equals(jobStatus) &&
                         !JobStatus.STOPPED.equals(jobStatus) &&
-                        !lastExecutionError
+                        !lastExecutionError &&
+                        !(JobStatus.ERROR.equals(jobStatus)) && runner.getFlinkJob().getResult().getExecution().isRestart()
                 ) {
-                    throw new RuntimeException("未提交不能运行!");
+                    throw new RuntimeException("当前不能运行，请稍后再试!");
                 }
             }
-            executorService.execute(() -> {
-                try {
-                    runner.setupLogger(command)
-                            .execute(command);
-                } catch (Exception e) {
-                    runner.logger().error(e.getMessage(), e);
-                } finally {
-                    runner.closeLogger();
-                }
-            });
         }
-        return true;
     }
 
     public JobRunner createRunner(Long actionId) {
@@ -112,6 +146,7 @@ public class JobExecuteService implements EventListener {
         jobRunner.addListener(JobManager.INSTANCE);
         jobRunner.addListener(jobCreator);
         jobRunner.addListener(logService);
+        jobRunner.addListener(alarmService);
         jobRunner.addListener(this);
         return jobRunner;
     }
@@ -143,6 +178,13 @@ public class JobExecuteService implements EventListener {
 
     @Override
     public void handleEvent(Event event) {
+        if (event instanceof RestartEvent) {
+            RestartEvent restartEvent = (RestartEvent) event;
+            JobRunner runner = getRunner(restartEvent.getActionId());
+            runner.getRestart().set(true);
+            runner.updateStatusAndResult(JobStatus.ERROR, result -> result.setApplicationId(""));
+            submitExecution(restartEvent.getActionId(), Execution.RESTART);
+        }
     }
 
     public void submitCheck(Long actionId, JobSubmitParam param) {

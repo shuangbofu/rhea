@@ -1,6 +1,7 @@
 package cn.shuangbofu.rhea.job.job;
 
 import cn.shuangbofu.rhea.common.enums.JobStatus;
+import cn.shuangbofu.rhea.job.alarm.AlarmConfig;
 import cn.shuangbofu.rhea.job.conf.JobActionProcess;
 import cn.shuangbofu.rhea.job.conf.JobConf;
 import cn.shuangbofu.rhea.job.conf.JobText;
@@ -21,12 +22,14 @@ public abstract class FlinkJob {
     protected final JobText text;
     protected final JobConf conf;
     protected final JobActionProcess result;
+    protected final boolean current;
+    protected final AlarmConfig alarmConfig;
     private final Long jobId;
     private final Object lock = new Object();
-    protected JobStatus jobStatus;
+    protected volatile JobStatus jobStatus;
     protected JobRunner runner;
 
-    public FlinkJob(Long jobId, String jobName, Long actionId, JobStatus jobStatus, JobText text, JobConf conf, JobActionProcess result) {
+    public FlinkJob(Long jobId, String jobName, Long actionId, JobStatus jobStatus, JobText text, JobConf conf, JobActionProcess result, boolean current, AlarmConfig alarmConfig) {
         this.jobId = jobId;
         this.jobName = jobName;
         this.actionId = actionId;
@@ -34,6 +37,8 @@ public abstract class FlinkJob {
         this.text = text;
         this.conf = conf;
         this.result = result;
+        this.current = current;
+        this.alarmConfig = alarmConfig;
     }
 
     public Long getJobId() {
@@ -66,6 +71,7 @@ public abstract class FlinkJob {
     }
 
     public void submit() {
+        // TODO 提交，复制发布目录配置文件到执行目录
         runner.getExecutor().local("sh /tmp/schedule_sleep.sh");
         runner.logger().info("成功!");
     }

@@ -21,4 +21,8 @@ public class JobEvent implements Event {
         this(actionId);
         this.runner = runner;
     }
+
+    public boolean running() {
+        return runner != null;
+    }
 }

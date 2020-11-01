@@ -20,6 +20,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 /**
@@ -28,36 +30,48 @@ import java.util.function.Consumer;
 public class JobRunner extends EventHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger(JobRunner.class);
     @Getter
+    private final Long actionId;
+    @Getter
     private final FlinkJob flinkJob;
     private final Object lock = new Object();
     private final ParamStore paramStore;
-    private Restart restart;
+    @Getter
+    private final AtomicBoolean restart = new AtomicBoolean(true);
     private RemoteExecutor executor;
     private JobLogger logger;
 
     public JobRunner(FlinkJob flinkJob, List<Param> params) {
         this.flinkJob = flinkJob;
+        actionId = flinkJob.getActionId();
         paramStore = new ParamStore();
         setParams(params);
-        setExecutor();
+        initExecutor();
+    }
+
+    public String getName() {
+        return flinkJob.getJobName() + "_" + actionId;
     }
 
     public void setParams(List<Param> params) {
         paramStore.addParams(params);
     }
 
-    private void setExecutor() {
+    private void initExecutor() {
         executor = new RemoteExecutor(paramStore, logger);
     }
 
-    public JobRunner setupLogger(String command) {
-        // 创建logger
-        String logName = String.format("JOB_%s_%s_%s", flinkJob.getActionId(), DateUtils.now(), command);
-        logger = new FileLogger(logName, flinkJob.getJobName(), false);
-        logger.info("日志初始化完成");
-        setExecutor();
-        updateResult(result -> result.start(logger.getKey()));
-        fireEventListeners(new LogEvent(logger));
+    public JobRunner setup(Execution execution) {
+        if (!execution.isRestart() || logger == null || (logger.closed() && execution.isRestart())) {
+            // 创建logger
+            String logName = String.format("JOB_%s_%s_%s", flinkJob.getActionId(), DateUtils.now(), execution);
+            logger = new FileLogger(logName, flinkJob.getJobName(), false);
+            logger.info("日志初始化完成");
+            updateResult(result -> result.start(logger.getKey()));
+            fireEventListeners(new LogEvent(logger));
+        }
+
+        // 初始化执行器
+        initExecutor();
         return this;
     }
 
@@ -75,12 +89,11 @@ public class JobRunner extends EventHandler {
     }
 
     public void kill() {
+        if (restart.get()) {
+            restart.set(false);
+        }
         logger.info("取消当前执行!");
         executor.cancel();
-    }
-
-    private boolean isRestart() {
-        return restart != null;
     }
 
     public boolean isRunning() {
@@ -91,33 +104,24 @@ public class JobRunner extends EventHandler {
         return JobStatus.EXECUTING.equals(getStatus());
     }
 
-    private void setExecuting(String command) {
-        logger.info("任务开始" + command);
-        updateStatusAndResult(JobStatus.EXECUTING, result -> result.setExecution(command));
-    }
-
     private JobStatus getStatus() {
         return flinkJob.getJobStatus();
     }
 
-    private void updateStatus(JobStatus status) {
+    public void updateStatus(JobStatus status) {
         flinkJob.updateStatus(status);
         fireEventListeners(new ActionUpdateEvent(flinkJob.getActionId(), status));
     }
 
-    private void updateStatusAndResult(JobStatus status, Consumer<JobActionProcess> consumer) {
+    public void updateStatusAndResult(JobStatus status, Consumer<JobActionProcess> consumer) {
         flinkJob.updateStatus(status);
         consumer.accept(flinkJob.getResult());
         fireEventListeners(new ActionUpdateEvent(flinkJob.getActionId(), flinkJob.getResult(), status));
     }
 
-    private void updateResult(Consumer<JobActionProcess> consumer) {
+    public void updateResult(Consumer<JobActionProcess> consumer) {
         consumer.accept(flinkJob.getResult());
         fireEventListeners(new ActionUpdateEvent(flinkJob.getActionId(), flinkJob.getResult(), null));
-    }
-
-    protected void execute() {
-
     }
 
     public void closeLogger() {
@@ -143,31 +147,38 @@ public class JobRunner extends EventHandler {
         return paramStore;
     }
 
-    public void execute(String command) {
+    public void execute(Execution execution) {
         synchronized (lock) {
-            JobStatus commandStatus = getCommandStatus(command);
-            setExecuting(command);
+            logger.info("任务开始" + execution);
+            updateStatusAndResult(JobStatus.EXECUTING, result ->
+                    result.setExecution(execution)
+            );
             try {
-                jobExecute(command);
-                updateStatus(commandStatus);
+                execute0(execution);
+                updateStatus(execution.getFinalStatus());
             } catch (Exception e) {
                 if (e instanceof ProcessFailureException) {
                     ProcessFailureException processFailureException = (ProcessFailureException) e;
                     logger.error(processFailureException.toString());
                 } else {
-                    logger.error("{}异常", e, command);
+                    logger.error("{}异常", e, execution);
                 }
-                updateStatus(JobStatus.ERROR);
+                if (!execution.isRestart() ||
+                        (execution.isRestart() && !restart.get())
+                ) {
+                    updateStatus(JobStatus.ERROR);
+                }
                 // 异常之后处理
-                checkAfterError(command);
+                checkAfterError(execution);
+                throw new RuntimeException(e);
             } finally {
                 logger.info("执行结束!");
             }
         }
     }
 
-    private void checkAfterError(String command) {
-        if (command.equals(Command.RUN)) {
+    private void checkAfterError(Execution execution) {
+        if (execution.equals(Execution.RUN)) {
             try {
                 String rsAddress = rsAddress();
                 List<String> applicationIds = YarnUtil.getApplicationIds(rsAddress, flinkJob.getJobName());
@@ -194,28 +205,16 @@ public class JobRunner extends EventHandler {
         return false;
     }
 
-    private JobStatus getCommandStatus(String command) {
-        switch (command) {
-            case Command.PUBLISH:
-                return JobStatus.PUBLISHED;
-            case Command.SUBMIT:
-                return JobStatus.SUBMITTED;
-            case Command.RUN:
-                return JobStatus.RUNNING;
-            default:
-                throw new RuntimeException("not supported");
-        }
-    }
-
-    private void jobExecute(String command) throws Exception {
-        switch (command) {
-            case Command.PUBLISH:
+    private void execute0(Execution execution) throws Exception {
+        switch (execution) {
+            case PUBLISH:
                 flinkJob.publish();
                 break;
-            case Command.SUBMIT:
+            case SUBMIT:
                 flinkJob.submit();
                 break;
-            case Command.RUN:
+            case RESTART:
+            case RUN:
                 flinkJob.run();
                 List<String> applicationIds = YarnUtil.getApplicationIds(rsAddress(), flinkJob.getJobName());
                 logger.info("yarn上app：{}", applicationIds);
@@ -239,7 +238,20 @@ public class JobRunner extends EventHandler {
         return paramStore.getValue("rsAddress");
     }
 
-    static class Restart {
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        JobRunner jobRunner = (JobRunner) o;
+        return Objects.equals(actionId, jobRunner.actionId);
+    }
 
+    @Override
+    public int hashCode() {
+        return Objects.hash(actionId);
     }
 }

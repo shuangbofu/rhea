@@ -1,5 +1,6 @@
 package cn.shuangbofu.rhea.job.conf;
 
+import cn.shuangbofu.rhea.job.job.Execution;
 import com.google.common.collect.Lists;
 import lombok.Data;
 import lombok.experimental.Accessors;
@@ -11,10 +12,11 @@ import java.util.Optional;
  * Created by shuangbofu on 2020/10/18 上午11:34
  */
 @Data
+@Accessors(chain = true)
 public class JobActionProcess {
     private PublishInfo publishInfo;
     private String applicationId;
-    private String execution;
+    private Execution execution;
     private String currentLogKey;
     /**
      * 日志key以 固定日志类型开头。

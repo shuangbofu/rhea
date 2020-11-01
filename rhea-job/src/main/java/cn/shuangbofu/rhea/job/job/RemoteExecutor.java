@@ -21,7 +21,7 @@ public class RemoteExecutor {
     private final SshHelp masterSshHelp;
     private final Object lock = new Object();
     private final JobLogger logger;
-    IProcess process;
+    private IProcess process;
 
     public RemoteExecutor(ParamStore store, JobLogger logger) {
         this.logger = logger;
@@ -65,6 +65,7 @@ public class RemoteExecutor {
             logger.info("get:{}", process);
             if (process != null) {
                 process.kill();
+                process = null;
             }
         }
     }

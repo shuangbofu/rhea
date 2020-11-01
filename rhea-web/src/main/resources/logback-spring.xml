@@ -93,7 +93,7 @@
         </encoder>
     </appender>
 
-    <logger name="org.sql2o" level="debug"/>
+    <!--    <logger name="org.sql2o" level="debug"/>-->
 
     <logger name="com.alibaba.dubbo" level="OFF"/>
     <!--    <logger name="org.apache.zookeeper" level="WARN"/>-->
