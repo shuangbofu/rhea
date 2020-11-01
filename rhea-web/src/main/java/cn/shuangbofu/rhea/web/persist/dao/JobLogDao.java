@@ -23,4 +23,8 @@ public class JobLogDao extends BaseDao<JobLog> {
         return findListBy(q -> q.in(JobLog::getKey, keys)).stream()
                 .collect(Collectors.groupingBy(JobLog::getKey, LinkedHashMap::new, Collectors.toList()));
     }
+
+    public long findCountByKey(String key) {
+        return findCountBy(q -> q.where(JobLog::getKey, key));
+    }
 }

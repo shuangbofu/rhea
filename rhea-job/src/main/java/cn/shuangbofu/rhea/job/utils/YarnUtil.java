@@ -12,13 +12,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import static java.util.regex.Pattern.compile;
 
@@ -61,7 +59,7 @@ public class YarnUtil {
     }
 
     private static List<String> getList(String origin) {
-        Pattern pattern = compile("application_\\d{13}_\\d{4,5,6}");
+        Pattern pattern = compile("application_\\d{13}_\\d{4,6}");
         Matcher m = pattern.matcher(origin);
 
         List<String> applicationIds = Lists.newArrayList();
@@ -94,10 +92,11 @@ public class YarnUtil {
     }
 
     public static List<String> getApplicationIds(String rsAddress, String name) throws IOException, YarnException {
-        List<ApplicationReport> applications = getYarnClient(rsAddress).getApplications(EnumSet.of(YarnApplicationState.RUNNING));
-        return applications.stream().filter(i -> name.equals(i.getName()))
-                .map(ApplicationReport::getApplicationId)
-                .map(ApplicationId::toString)
-                .collect(Collectors.toList());
+        return Lists.newArrayList("application_" + System.currentTimeMillis() + "_12345");
+//        List<ApplicationReport> applications = getYarnClient(rsAddress).getApplications(EnumSet.of(YarnApplicationState.RUNNING));
+//        return applications.stream().filter(i -> name.equals(i.getName()))
+//                .map(ApplicationReport::getApplicationId)
+//                .map(ApplicationId::toString)
+//                .collect(Collectors.toList());
     }
 }

@@ -203,10 +203,11 @@ public class JobService {
         return jobActionDao.getActionResult(actionId);
     }
 
-    public List<LogData> getHistoryLogs(Long actionId) {
+    public List<LogData> getHistoryLogs(Long actionId, Integer limit) {
         List<String> logKeys = getActionResult(actionId).getRecords().stream()
                 .filter(JobActionProcess.Record::isEnd)
                 .map(JobActionProcess.Record::getLogKey)
+                .limit(limit)
                 .collect(Collectors.toList());
         return logService.getHistoryLogs(logKeys);
     }

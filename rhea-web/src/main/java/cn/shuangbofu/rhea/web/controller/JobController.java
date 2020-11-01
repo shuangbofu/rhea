@@ -109,8 +109,9 @@ public class JobController {
     }
 
     @GetMapping("/logs")
-    public Result<List<LogData>> getHistoryLogs(Long actionId) {
-        return Result.success(jobService.getHistoryLogs(actionId));
+    public Result<List<LogData>> getHistoryLogs(@RequestParam("actionId") Long actionId,
+                                                @RequestParam(name = "limit", required = false, defaultValue = "10") Integer limit) {
+        return Result.success(jobService.getHistoryLogs(actionId, limit));
     }
 
     @GetMapping("/log")

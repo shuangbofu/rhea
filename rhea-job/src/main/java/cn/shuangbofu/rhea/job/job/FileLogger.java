@@ -46,7 +46,7 @@ public class FileLogger implements JobLogger {
         info("log init success");
     }
 
-    public static List<FileUtil.LogResult> getRes(File... files) {
+    public static List<FileUtil.LogResult> getLogsFromFile(File... files) {
         List<FileUtil.LogResult> logResults = Lists.newArrayList();
         byte[] buffer = new byte[50 * 1024];
         int pos = 0;
@@ -147,7 +147,7 @@ public class FileLogger implements JobLogger {
         fileAppender.close();
         consoleAppender.close();
         logger = null;
-        return getRes(logFile);
+        return getLogsFromFile(logFile);
     }
 
 

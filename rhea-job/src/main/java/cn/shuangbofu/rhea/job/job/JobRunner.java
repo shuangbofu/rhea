@@ -1,6 +1,7 @@
 package cn.shuangbofu.rhea.job.job;
 
 import cn.shuangbofu.rhea.common.enums.JobStatus;
+import cn.shuangbofu.rhea.common.utils.DateUtils;
 import cn.shuangbofu.rhea.common.utils.FileUtil;
 import cn.shuangbofu.rhea.job.JobLogger;
 import cn.shuangbofu.rhea.job.conf.JobActionProcess;
@@ -51,10 +52,9 @@ public class JobRunner extends EventHandler {
 
     public JobRunner setupLogger(String command) {
         // 创建logger
-        String logName = String.format("JOB_%s_%s_%s", flinkJob.getActionId(), System.currentTimeMillis(), command);
+        String logName = String.format("JOB_%s_%s_%s", flinkJob.getActionId(), DateUtils.now(), command);
         logger = new FileLogger(logName, flinkJob.getJobName(), false);
         logger.info("日志初始化完成");
-
         setExecutor();
         updateResult(result -> result.start(logger.getKey()));
         fireEventListeners(new LogEvent(logger));
@@ -91,8 +91,9 @@ public class JobRunner extends EventHandler {
         return JobStatus.EXECUTING.equals(getStatus());
     }
 
-    private void setExecuting(JobStatus status) {
-        updateStatusAndResult(JobStatus.EXECUTING, result -> result.setExecuteStatus(status));
+    private void setExecuting(String command) {
+        logger.info("任务开始" + command);
+        updateStatusAndResult(JobStatus.EXECUTING, result -> result.setExecution(command));
     }
 
     private JobStatus getStatus() {
@@ -145,8 +146,7 @@ public class JobRunner extends EventHandler {
     public void execute(String command) {
         synchronized (lock) {
             JobStatus commandStatus = getCommandStatus(command);
-            logger.info("任务开始" + command);
-            setExecuting(commandStatus);
+            setExecuting(command);
             try {
                 jobExecute(command);
                 updateStatus(commandStatus);

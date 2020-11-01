@@ -1,5 +1,6 @@
 package cn.shuangbofu.rhea.job.utils;
 
+import cn.shuangbofu.rhea.common.utils.DateUtils;
 import cn.shuangbofu.rhea.job.JobLogger;
 import cn.shuangbofu.rhea.job.job.FileLogger;
 import cn.shuangbofu.rhea.job.job.shell.CmdProcess;
@@ -17,7 +18,7 @@ public class Shell {
     public static CmdProcess execute(String cmd, JobLogger logger, Consumer<CmdProcess> consumer) {
         boolean closeLogger = logger == null;
         if (closeLogger) {
-            logger = new FileLogger(System.currentTimeMillis() + "", "local_command_execute_tmp", false);
+            logger = new FileLogger(DateUtils.now() + "", "local_command_execute_tmp", false);
         }
         List<String> cmds = new ArrayList<>();
         cmds.add("bash");

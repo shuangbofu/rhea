@@ -1,6 +1,5 @@
 package cn.shuangbofu.rhea.job.conf;
 
-import cn.shuangbofu.rhea.common.enums.JobStatus;
 import com.google.common.collect.Lists;
 import lombok.Data;
 import lombok.experimental.Accessors;
@@ -15,7 +14,7 @@ import java.util.Optional;
 public class JobActionProcess {
     private PublishInfo publishInfo;
     private String applicationId;
-    private JobStatus executeStatus;
+    private String execution;
     private String currentLogKey;
     /**
      * 日志key以 固定日志类型开头。
@@ -63,6 +62,7 @@ public class JobActionProcess {
         private String logKey;
         private long start;
         private long end;
+        private boolean ended;
 
         public Record() {
         }
@@ -74,7 +74,12 @@ public class JobActionProcess {
         }
 
         public boolean isEnd() {
-            return end != 0;
+            return ended;
+        }
+
+        public void setEnd(long timestamp) {
+            end = timestamp;
+            ended = true;
         }
     }
 }

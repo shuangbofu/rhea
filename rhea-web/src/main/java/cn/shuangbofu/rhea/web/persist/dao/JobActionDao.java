@@ -8,6 +8,7 @@ import cn.shuangbofu.rhea.web.persist.entity.JobAction;
 import io.github.biezhi.anima.page.Page;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Created by shuangbofu on 2020/10/18 下午12:16
@@ -44,7 +45,9 @@ public class JobActionDao extends BaseDao<JobAction> {
     }
 
     public JobAction findCurrent(Long jobId) {
-        return findOneBy(q -> JOB_ID_WHERE.where(jobId).apply(q.where(JobAction::getJobId, jobId)));
+        return findOneBy(q -> JOB_ID_WHERE.where(jobId).apply(
+                q.where(JobAction::getCurrent, true)
+                        .where(JobAction::getJobId, jobId)));
     }
 
     public int updateResultStatus(Long actionId, JobActionProcess result, JobStatus status) {
@@ -72,5 +75,18 @@ public class JobActionDao extends BaseDao<JobAction> {
             return JSON.parseObject(action.getJobActionProcess(), JobActionProcess.class);
         }
         return null;
+    }
+
+    public List<Long> getActionIdsByStatus(JobStatus jobStatus) {
+        return findListBy(q -> q
+                .select("id")
+                .where(JobAction::getCurrent, true)
+                .where(JobAction::getJobStatus, jobStatus))
+                .stream().map(JobAction::getId)
+                .collect(Collectors.toList());
+    }
+
+    public List<JobAction> getActionsByStatus(JobStatus jobStatus) {
+        return findListBy(q -> q.where(JobAction::getJobStatus, jobStatus));
     }
 }

@@ -4,12 +4,14 @@ import cn.shuangbofu.rhea.job.JobLogger;
 import cn.shuangbofu.rhea.job.event.Event;
 import cn.shuangbofu.rhea.job.event.EventListener;
 import cn.shuangbofu.rhea.job.event.JobEvent;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -27,11 +29,17 @@ public enum JobManager implements EventListener {
     @Getter
     private final Map<Long, JobRunner> runningJobs = Maps.newConcurrentMap();
     private final Map<Long, JobLogger> jobLoggers = Maps.newConcurrentMap();
+    private final JobCheckThread checkThread = new JobCheckThread();
 
-    JobManager() {
+    public void open(List<JobRunner> runningRunners) {
+        runningRunners.forEach(runner -> runningJobs.put(runner.getFlinkJob().getActionId(), runner));
         ExecutorService service = Executors.newSingleThreadExecutor();
-        service.submit(new JobCheckThread());
+        service.submit(checkThread);
         service.shutdown();
+    }
+
+    public void shutdown() {
+        checkThread.shutdown();
     }
 
     public JobLogger getLogger(Long actionId) {
@@ -40,7 +48,8 @@ public enum JobManager implements EventListener {
 
     private JobLogger createLogger(Long actionId) {
         JobRunner jobRunner = runningJobs.get(actionId);
-        return new FileLogger("JOB_" + actionId + "_" + System.currentTimeMillis(), jobRunner.getFlinkJob().getJobName() + "/runtime", true);
+        return new FileLogger(jobRunner.getFlinkJob().getJobName() + "_" + actionId,
+                "/RUNTIME_CHECK/", true);
     }
 
     @Override
@@ -57,15 +66,23 @@ public enum JobManager implements EventListener {
         }
     }
 
+    public List<JobLogger> getJobLoggers() {
+        return Lists.newArrayList(jobLoggers.values());
+    }
+
     class JobCheckThread extends Thread {
+
+        private boolean shutdown;
+
         JobCheckThread() {
             setName("running-check");
             setDaemon(true);
+            shutdown = false;
         }
 
         @Override
         public void run() {
-            while (true) {
+            while (!shutdown) {
                 synchronized (this) {
                     try {
                         HashMap<Long, JobRunner> checks = Maps.newHashMap(runningJobs);
@@ -79,6 +96,10 @@ public enum JobManager implements EventListener {
                     }
                 }
             }
+        }
+
+        public void shutdown() {
+            shutdown = true;
         }
     }
 }

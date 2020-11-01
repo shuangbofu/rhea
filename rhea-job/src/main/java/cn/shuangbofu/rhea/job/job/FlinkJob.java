@@ -66,10 +66,12 @@ public abstract class FlinkJob {
     }
 
     public void submit() {
+        runner.getExecutor().local("sh /tmp/schedule_sleep.sh");
         runner.logger().info("成功!");
     }
 
     public void run() {
+        runner.getExecutor().local("sh /tmp/schedule_sleep.sh");
         runner.logger().info("成功!");
     }
 

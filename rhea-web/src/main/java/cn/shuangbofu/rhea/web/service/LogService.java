@@ -50,14 +50,18 @@ public class LogService implements EventListener {
             String key = logEvent.getKey();
             List<FileUtil.LogResult> logs = logEvent.getLogs();
             if (logs != null && logs.size() > 0) {
-                List<JobLog> jobLogs = logs.stream().map(i -> new JobLog().setKey(key).setLog(i.getLog()).setStartByte(i.getStartByte()).setEndByte(i.getEndByte()))
-                        .collect(Collectors.toList());
-                jobLogDao.insertBatch(jobLogs);
+                saveLogs(key, logs);
                 loggerCache.remove(key);
             } else {
                 loggerCache.put(key, logEvent.getLogger());
             }
         }
+    }
+
+    public void saveLogs(String key, List<FileUtil.LogResult> results) {
+        List<JobLog> jobLogs = results.stream().map(i -> new JobLog().setKey(key).setLog(i.getLog()).setStartByte(i.getStartByte()).setEndByte(i.getEndByte()))
+                .collect(Collectors.toList());
+        jobLogDao.insertBatch(jobLogs);
     }
 
     public LogData getHistoryLog(String key) {
@@ -66,7 +70,7 @@ public class LogService implements EventListener {
 
     public LogData getJobLog(String key, Integer offset, Integer length) {
         JobLogger jobLogger = loggerCache.get(key);
-        return jobLogger.getLog(offset, length);
+        return jobLogger.getLog(offset, length).setKey(key);
     }
 
     public List<LogData> getHistoryLogs(List<String> keys) {

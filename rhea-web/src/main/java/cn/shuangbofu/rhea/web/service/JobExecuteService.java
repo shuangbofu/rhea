@@ -32,6 +32,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * Created by shuangbofu on 2020/10/30 上午11:35
@@ -74,24 +75,25 @@ public class JobExecuteService implements EventListener {
                 throw new RuntimeException("正在执行其他操作,请稍后再操作!");
             }
             JobStatus jobStatus = runner.getFlinkJob().getJobStatus();
-            JobStatus executeStatus = runner.getFlinkJob().getResult().getExecuteStatus();
-            boolean isError = JobStatus.ERROR.equals(jobStatus);
+            boolean lastExecutionError = command.equals(runner.getFlinkJob().getResult().getExecution()) && JobStatus.ERROR.equals(jobStatus);
             if (Command.SUBMIT.equals(command)) {
                 if (!JobStatus.PUBLISHED.equals(jobStatus) &&
-                        (!JobStatus.SUBMITTED.equals(executeStatus) && isError)) {
+                        !lastExecutionError
+                ) {
                     throw new RuntimeException("未发布不能提交!");
                 }
             } else if (Command.RUN.equals(command)) {
                 if (!JobStatus.SUBMITTED.equals(jobStatus) &&
-                        (!JobStatus.RUNNING.equals(executeStatus) && isError) &&
-                        JobStatus.STOPPED.equals(jobStatus)
+                        !JobStatus.STOPPED.equals(jobStatus) &&
+                        !lastExecutionError
                 ) {
                     throw new RuntimeException("未提交不能运行!");
                 }
             }
             executorService.execute(() -> {
                 try {
-                    runner.setupLogger(command).execute(command);
+                    runner.setupLogger(command)
+                            .execute(command);
                 } catch (Exception e) {
                     runner.logger().error(e.getMessage(), e);
                 } finally {
@@ -138,9 +140,9 @@ public class JobExecuteService implements EventListener {
         return Lists.newArrayList(clusterParam, componentParam);
     }
 
+
     @Override
     public void handleEvent(Event event) {
-
     }
 
     public void submitCheck(Long actionId, JobSubmitParam param) {
@@ -152,6 +154,16 @@ public class JobExecuteService implements EventListener {
             if (!param.getStopCurrent()) {
                 throw new RuntimeException("任务正在运行中，请先停止或选择强制重新提交!");
             }
+            runner.stop();
         }
+        if (runner.getFlinkJob().getJobStatus().equals(JobStatus.SUBMITTED)) {
+            if (!param.getStopCurrent()) {
+                throw new RuntimeException("任务已有提交，需要提交选择强制提交!");
+            }
+        }
+    }
+
+    public List<JobRunner> getExecutingRunners() {
+        return runnerCache.values().stream().filter(JobRunner::isExecuting).collect(Collectors.toList());
     }
 }
