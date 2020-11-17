@@ -174,10 +174,12 @@ public class JobService {
         JobAction action = jobActionDao.findOneById(param.getActionId());
         Long jobId = action.getJobId();
         JobAction current = jobActionDao.findCurrent(jobId);
+        Long currentId = null;
         if (current != null) {
             jobExecuteService.submitCheck(current.getId(), param);
-            jobActionDao.changeCurrent(action.getId(), current.getId());
+            currentId = current.getId();
         }
+        jobActionDao.changeCurrent(action.getId(), currentId);
         return jobExecuteService.submitExecution(action.getId(), Execution.SUBMIT);
     }
 

@@ -62,7 +62,6 @@ public class RemoteExecutor {
 
     public void cancel() {
         synchronized (lock) {
-            logger.info("get:{}", process);
             if (process != null) {
                 process.kill();
                 process = null;
@@ -73,7 +72,6 @@ public class RemoteExecutor {
     private void setCurrent(IProcess process) {
         synchronized (lock) {
             this.process = process;
-            logger.info("set: {}", process);
         }
     }
 

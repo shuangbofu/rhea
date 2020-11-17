@@ -131,7 +131,10 @@ public abstract class BaseDao<T extends Model<T>> {
     }
 
     public int updateModel(Model<T> model) {
-        return new AnimaQuery<>(bClass).updateByModel(model);
+        Long id = model.getId();
+        int i = new AnimaQuery<>(bClass).updateByModel(model);
+        model.setId(id);
+        return i;
     }
 
     public int deleteById(Long id) {

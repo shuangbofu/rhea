@@ -64,7 +64,9 @@ public class JobActionDao extends BaseDao<JobAction> {
 
     public void changeCurrent(Long newActionId, Long oldActionId) {
         Daos.atomic(() -> {
-            updateById(oldActionId, q -> q.set(JobAction::getCurrent, false));
+            if (oldActionId != null) {
+                updateById(oldActionId, q -> q.set(JobAction::getCurrent, false));
+            }
             updateById(newActionId, q -> q.set(JobAction::getCurrent, true));
         }, "change error");
     }

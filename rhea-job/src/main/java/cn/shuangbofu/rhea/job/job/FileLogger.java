@@ -43,7 +43,7 @@ public class FileLogger implements JobLogger {
 
         }
         this.logger = logger;
-        info("log init success");
+        info("Initialize the log file {}.log.", logFile.getName());
     }
 
     public static List<FileUtil.LogResult> getLogsFromFile(File... files) {
@@ -142,7 +142,7 @@ public class FileLogger implements JobLogger {
 
     @Override
     public List<FileUtil.LogResult> close() {
-        info("close log {}{}.log", DIR, name);
+        info("Stop logging to {}", logFile.getName());
         logger.removeAllAppenders();
         fileAppender.close();
         consoleAppender.close();
